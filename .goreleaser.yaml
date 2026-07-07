@@ -1,0 +1,89 @@
+version: 2
+
+project_name: gpx-stats
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: gpx-stats
+    main: ./cmd/gpx-stats
+    binary: gpx-stats
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/sgaunet/gpx-stats/internal/cli.Version={{ .Version }}
+      - -X github.com/sgaunet/gpx-stats/internal/cli.Commit={{ .Commit }}
+      - -X github.com/sgaunet/gpx-stats/internal/cli.Date={{ .Date }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "checksums.txt"
+
+sboms:
+  - artifacts: archive
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+  - image_templates:
+      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+
+docker_manifests:
+  - name_template: "ghcr.io/sgaunet/gpx-stats:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-amd64"
+      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/sgaunet/gpx-stats:latest"
+    image_templates:
+      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-amd64"
+      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-arm64"
+
+
+
+# gitea_urls:
+#   api: https://git.sylvlab.fr/api/v1
+#   download: https://git.sylvlab.fr
+#   # set to true if you use a self-signed certificate
+#   skip_tls_verify: false

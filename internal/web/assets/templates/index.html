@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gpx-stats</title>
+  <link rel="stylesheet" href="/static/bulma.min.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">GPX Statistics</h1>
+      <h2 class="subtitle">Upload a GPX file to see your activity statistics and charts.</h2>
+
+      <div class="notification is-info is-light">
+        <strong>Privacy:</strong> your file is processed in memory and is
+        <strong>not stored</strong>. Nothing is written to disk and no data leaves this server.
+      </div>
+
+      {{if .Error}}
+      <div class="notification is-danger">{{.Error}}</div>
+      {{end}}
+
+      <div class="box">
+        <form action="/analyze" method="post" enctype="multipart/form-data">
+          <div class="field">
+            <label class="label" for="file">GPX file</label>
+            <div class="control">
+              <input class="input" type="file" id="file" name="file" accept=".gpx,application/gpx+xml,text/xml" required>
+            </div>
+            <p class="help">Maximum size: {{.MaxUploadMB}} MB.</p>
+          </div>
+
+          <div class="columns">
+            <div class="column">
+              <div class="field">
+                <label class="label" for="pause_speed">Pause speed threshold (km/h)</label>
+                <div class="control">
+                  <input class="input" type="number" step="0.1" min="0" id="pause_speed" name="pause_speed" value="{{.PauseSpeed}}">
+                </div>
+              </div>
+            </div>
+            <div class="column">
+              <div class="field">
+                <label class="label" for="pause_duration">Minimum pause duration</label>
+                <div class="control">
+                  <input class="input" type="text" id="pause_duration" name="pause_duration" value="{{.PauseDuration}}" placeholder="10s">
+                </div>
+                <p class="help">Go duration format, e.g. <code>10s</code>, <code>1m30s</code>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="control">
+              <button class="button is-primary" type="submit">Calculate statistics</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

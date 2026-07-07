@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gpx [
+  <!ENTITY lol "lol">
+  <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+  <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<gpx version="1.1" creator="attacker" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>&lol3;</name>
+    <trkseg>
+      <trkpt lat="45.0000" lon="6.0000"><ele>100.0</ele><name>&xxe;</name></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
