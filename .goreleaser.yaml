@@ -50,35 +50,20 @@ changelog:
       - "^test:"
       - "^chore:"
 
-dockers:
-  - image_templates:
-      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-amd64"
-    use: buildx
+dockers_v2:
+  - id: gpx-stats
+    images:
+      - "ghcr.io/sgaunet/gpx-stats"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
     dockerfile: Dockerfile
-    goarch: amd64
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-  - image_templates:
-      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-arm64"
-    use: buildx
-    dockerfile: Dockerfile
-    goarch: arm64
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-
-docker_manifests:
-  - name_template: "ghcr.io/sgaunet/gpx-stats:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-amd64"
-      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-arm64"
-  - name_template: "ghcr.io/sgaunet/gpx-stats:latest"
-    image_templates:
-      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-amd64"
-      - "ghcr.io/sgaunet/gpx-stats:{{ .Version }}-arm64"
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.version: "{{ .Version }}"
 
 
 

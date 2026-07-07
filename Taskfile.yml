@@ -57,10 +57,12 @@ tasks:
 
   image:
     desc: "Build and push Docker image"
-    deps:
-      - build
     cmds:
-      - docker build --no-cache --build-arg VERSION=development . -t ghcr.io/sgaunet/gpx-stats/gpx-stats:latest
+      # Dockerfile now copies from $TARGETPLATFORM/ (dockers_v2 layout); stage the
+      # linux/amd64 binary into a small, git-ignored build context under dist/.
+      - rm -rf dist/imgctx && mkdir -p dist/imgctx/linux/amd64
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o dist/imgctx/linux/amd64/{{.BINFILE}} ./cmd/gpx-stats
+      - docker build --no-cache --platform linux/amd64 -f Dockerfile -t ghcr.io/sgaunet/gpx-stats/gpx-stats:latest dist/imgctx
       - docker push ghcr.io/sgaunet/gpx-stats/gpx-stats:latest
 
 
