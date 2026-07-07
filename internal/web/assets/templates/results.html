@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gpx-stats — results</title>
+  <link rel="stylesheet" href="/static/bulma.min.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">Activity statistics</h1>
+
+      <div class="notification is-info is-light">
+        This file was processed in memory and <strong>was not stored</strong>.
+        <a href="/">Analyze another file</a>.
+      </div>
+
+      <div class="columns is-multiline">
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Distance</p>
+            <p class="title is-4">{{.TotalDistanceKm}} km</p>
+          </div>
+        </div>
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Ascending elevation</p>
+            <p class="title is-4">{{if .HasElevation}}{{.AscendingElevationM}} m{{else}}n/a{{end}}</p>
+          </div>
+        </div>
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Total time</p>
+            <p class="title is-4">{{if .HasTimes}}{{.TotalTime}}{{else}}n/a{{end}}</p>
+          </div>
+        </div>
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Moving time</p>
+            <p class="title is-4">{{if .HasTimes}}{{.MovingTime}}{{else}}n/a{{end}}</p>
+          </div>
+        </div>
+      </div>
+
+      {{if .HasTimes}}
+      <div class="columns is-multiline">
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Pause time</p>
+            <p class="title is-5">{{.PauseTime}} ({{.PauseCount}})</p>
+          </div>
+        </div>
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Avg speed</p>
+            <p class="title is-5">{{.AvgSpeedKmh}} km/h</p>
+          </div>
+        </div>
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Avg moving speed</p>
+            <p class="title is-5">{{.AvgMovingSpeedKmh}} km/h</p>
+          </div>
+        </div>
+        <div class="column is-one-quarter">
+          <div class="box has-text-centered">
+            <p class="heading">Points</p>
+            <p class="title is-5">{{.PointCount}}</p>
+          </div>
+        </div>
+      </div>
+      {{end}}
+
+      {{if .ElevationDistanceChart}}
+      <div class="box">
+        <h2 class="subtitle">Elevation vs. distance</h2>
+        {{.ElevationDistanceChart}}
+      </div>
+      {{end}}
+
+      {{if .ElevationTimeChart}}
+      <div class="box">
+        <h2 class="subtitle">Elevation vs. time</h2>
+        {{.ElevationTimeChart}}
+      </div>
+      {{end}}
+
+      {{if .SpeedChart}}
+      <div class="box">
+        <h2 class="subtitle">Speed per kilometer</h2>
+        {{.SpeedChart}}
+      </div>
+      {{end}}
+
+      {{if .Splits}}
+      <div class="box">
+        <h2 class="subtitle">Kilometer splits</h2>
+        <table class="table is-striped is-fullwidth">
+          <thead>
+            <tr><th>km</th><th>Distance (km)</th><th>Time</th><th>Speed (km/h)</th></tr>
+          </thead>
+          <tbody>
+            {{range .Splits}}
+            <tr>
+              <td>{{.Index}}</td>
+              <td>{{.DistanceKm}}</td>
+              <td>{{.Duration}}</td>
+              <td>{{.SpeedKmh}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
+    </div>
+  </section>
+</body>
+</html>
