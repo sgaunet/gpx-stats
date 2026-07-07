@@ -1,6 +1,6 @@
 # Minimal, secure image. The CA-cert stage doubles as the documented
 # minimal-base fallback when FROM scratch is not feasible (US3 AS3).
-FROM alpine:3.20 AS certs
+FROM alpine:3.24 AS certs
 RUN apk add --no-cache ca-certificates
 
 FROM scratch
