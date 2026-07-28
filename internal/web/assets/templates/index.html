@@ -54,9 +54,18 @@
               <div class="field">
                 <label class="label" for="pause_duration">Minimum pause duration</label>
                 <div class="control">
-                  <input class="input" type="text" id="pause_duration" name="pause_duration" value="{{.PauseDuration}}" placeholder="10s">
+                  <input class="input" type="text" id="pause_duration" name="pause_duration" value="{{.PauseDuration}}" placeholder="2m0s">
                 </div>
                 <p class="help">Go duration format, e.g. <code>10s</code>, <code>1m30s</code>.</p>
+              </div>
+            </div>
+            <div class="column">
+              <div class="field">
+                <label class="label" for="elevation_noise">Elevation noise threshold (m)</label>
+                <div class="control">
+                  <input class="input" type="number" step="0.1" min="0" id="elevation_noise" name="elevation_noise" value="{{.ElevationNoise}}">
+                </div>
+                <p class="help">Filters GPS elevation jitter out of ascent and descent.</p>
               </div>
             </div>
           </div>

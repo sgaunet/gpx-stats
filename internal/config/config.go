@@ -12,9 +12,12 @@ import (
 
 // Default values for configuration fields.
 const (
-	DefaultStationarySpeedKmh   = 1.0
-	DefaultMinPauseDuration     = 10 * time.Second
-	DefaultElevationNoiseMeters = 3.0
+	// DefaultStationarySpeedKmh is deliberately small: it tolerates the GPS
+	// jitter a stopped device still records, without counting slow movement as
+	// a stop. Set it to 0 to require a true standstill.
+	DefaultStationarySpeedKmh   = 0.1
+	DefaultMinPauseDuration     = 120 * time.Second
+	DefaultElevationNoiseMeters = 1.0
 	DefaultMaxUploadBytes       = int64(25 << 20) // 25 MiB
 	DefaultMaxTrackPoints       = 500_000
 	DefaultServerAddr           = ":8080"
@@ -24,8 +27,8 @@ const (
 // the web server. Construct with Default and override fields as needed, then
 // call Validate before use.
 type Config struct {
-	// StationarySpeedKmh is the speed below which a segment is considered
-	// stationary for pause detection.
+	// StationarySpeedKmh is the speed at or below which a segment is considered
+	// stationary for pause detection. Zero requires a true standstill.
 	StationarySpeedKmh float64
 	// MinPauseDuration is the minimum length of a stationary run to count as a
 	// pause.

@@ -117,11 +117,12 @@ func (s *Server) renderIndex(w http.ResponseWriter, status int, errMsg string) {
 		mv = mapView{}
 	}
 	data := map[string]any{
-		"MaxUploadMB":   s.cfg.MaxUploadBytes / (1 << 20),
-		"PauseSpeed":    s.cfg.StationarySpeedKmh,
-		"PauseDuration": s.cfg.MinPauseDuration.String(),
-		"Error":         errMsg,
-		"Map":           mv,
+		"MaxUploadMB":    s.cfg.MaxUploadBytes / (1 << 20),
+		"PauseSpeed":     s.cfg.StationarySpeedKmh,
+		"PauseDuration":  s.cfg.MinPauseDuration.String(),
+		"ElevationNoise": s.cfg.ElevationNoiseMeters,
+		"Error":          errMsg,
+		"Map":            mv,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
@@ -182,6 +183,14 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg.MinPauseDuration = d
 	}
+	if v := r.FormValue("elevation_noise"); v != "" {
+		f, perr := strconv.ParseFloat(v, 64)
+		if perr != nil {
+			s.renderError(w, http.StatusBadRequest, "Elevation noise must be a number in meters.")
+			return
+		}
+		cfg.ElevationNoiseMeters = f
+	}
 	if verr := cfg.Validate(); verr != nil {
 		s.renderError(w, http.StatusBadRequest, "Invalid settings: "+verr.Error())
 		return
@@ -218,6 +227,9 @@ type splitView struct {
 type resultView struct {
 	TotalDistanceKm        string
 	AscendingElevationM    string
+	DescendingElevationM   string
+	EffortKmClimb          string
+	EffortKmClimbDescent   string
 	HasElevation           bool
 	TotalTime              string
 	MovingTime             string
@@ -243,6 +255,9 @@ func (s *Server) buildView(track gpx.Track, res stats.Result) (resultView, error
 	}
 	if res.HasElevation {
 		v.AscendingElevationM = fmt.Sprintf("%.0f", res.AscendingElevationM)
+		v.DescendingElevationM = fmt.Sprintf("%.0f", res.DescendingElevationM)
+		v.EffortKmClimb = fmt.Sprintf("%.2f", res.EffortKmClimb)
+		v.EffortKmClimbDescent = fmt.Sprintf("%.2f", res.EffortKmClimbDescent)
 	}
 	if res.HasTimes {
 		v.TotalTime = formatDuration(res.TotalTime)

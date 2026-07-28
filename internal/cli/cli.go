@@ -42,8 +42,11 @@ func runStats(args []string, stdout, stderr io.Writer) int {
 
 	jsonOut := fs.Bool("json", false, "emit statistics as JSON instead of text")
 	charts := fs.Bool("charts", false, "also draw ASCII elevation and speed charts")
-	pauseSpeed := fs.Float64("pause-speed", config.DefaultStationarySpeedKmh, "stationary speed threshold in km/h")
+	pauseSpeed := fs.Float64("pause-speed", config.DefaultStationarySpeedKmh,
+		"stationary speed threshold in km/h (a segment at or below it counts as stopped)")
 	pauseDur := fs.Duration("pause-duration", config.DefaultMinPauseDuration, "minimum pause duration")
+	elevNoise := fs.Float64("elevation-noise", config.DefaultElevationNoiseMeters,
+		"elevation jitter threshold in meters (filters GPS noise out of ascent and descent)")
 	maxPoints := fs.Int("max-points", config.DefaultMaxTrackPoints, "maximum track points accepted")
 
 	if code, done := parseFlags(fs, args, stderr); done {
@@ -60,6 +63,7 @@ func runStats(args []string, stdout, stderr io.Writer) int {
 	cfg := config.Default()
 	cfg.StationarySpeedKmh = *pauseSpeed
 	cfg.MinPauseDuration = *pauseDur
+	cfg.ElevationNoiseMeters = *elevNoise
 	cfg.MaxTrackPoints = *maxPoints
 	if err := cfg.Validate(); err != nil {
 		fmt.Fprintf(stderr, "error: invalid configuration: %v\n", err)

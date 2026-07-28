@@ -20,9 +20,12 @@ server-side network calls, nothing stored.**
   base layers (OpenStreetMap, OpenTopoMap, CyclOSM, Humanitarian), framed on the
   activity with start/end markers, and expandable to full screen. Every recorded
   point is drawn — the line is never simplified.
-- **MVP statistics**: total distance (km), ascending elevation (m), total /
-  moving / pause time, number of pauses, average and moving speed (km/h), and
-  per-kilometer splits (time + speed).
+- **MVP statistics**: total distance (km), ascending and descending elevation
+  (m), total / moving / pause time, number of pauses, average and moving speed
+  (km/h), and per-kilometer splits (time + speed).
+- **Effort kilometers**: the flat distance that would cost the same effort as
+  the hilly route, reported under both common conventions. See
+  [Effort kilometers](#effort-kilometers).
 - **Safe by construction**: GPX is parsed with the standard library
   `encoding/xml`, which ignores DTDs and external entities, so XXE and
   entity-expansion ("billion laughs") attacks are neutralised. Input is bounded
@@ -45,11 +48,57 @@ gpx-stats path/to/activity.gpx            # human-readable statistics
 gpx-stats --json path/to/activity.gpx     # machine-readable JSON
 gpx-stats --charts path/to/activity.gpx   # add ASCII elevation & speed charts
 
-# Tune pause detection (defaults: 1 km/h sustained for 10s)
+# Tune pause detection (defaults: 0.1 km/h sustained for 2m0s)
 gpx-stats --pause-speed 1.5 --pause-duration 15s path/to/activity.gpx
+
+# Tune how aggressively GPS elevation jitter is filtered (default: 1 m)
+gpx-stats --elevation-noise 3 path/to/activity.gpx
 ```
 
 Errors are written to stderr with a non-zero exit code (1 runtime, 2 usage).
+
+## Effort kilometers
+
+A hilly route costs more than its flat distance suggests. *Effort kilometers*
+("km-effort") restate it as the flat distance that would cost the same effort.
+
+Two conventions are in common use, so **both are reported and neither is
+presented as the correct one** — pick whichever your club, race or training plan
+already uses:
+
+| Figure | Formula | Legend |
+|--------|---------|--------|
+| Effort km (climb) | distance + D+/100 | 100 m ascent = 1 km |
+| Effort km (climb + descent) | distance + D+/100 + D-/300 | 100 m ascent = 1 km, 300 m descent = 1 km |
+
+For a 10 km route with 500 m of ascent and 300 m of descent, they read **15.00**
+and **16.00**.
+
+Both figures appear in the CLI, in `--json` and on the web results page, each
+above its own legend — here as an excerpt of `gpx-stats testdata/sample.gpx`:
+
+```
+Total distance:    0.16 km
+Ascending elev.:   25 m
+Descending elev.:  0 m
+Effort km (climb):            0.41
+  100 m ascent = 1 km
+Effort km (climb + descent):  0.41
+  100 m ascent = 1 km, 300 m descent = 1 km
+```
+
+Notes:
+
+- **Descending elevation (D-)** is reported in its own right, as a positive
+  number. It mirrors the ascent calculation and filters jitter with the same
+  `--elevation-noise` threshold, so an out-and-back route reports comparable
+  gain and loss instead of an inflated descent.
+- Effort needs only distance and elevation, so it is reported for tracks that
+  carry **no timestamps** — where every time-based statistic is unavailable.
+- A track with **no elevation data** shows `unavailable (no elevation data)` in
+  text, `null` in JSON and `n/a` on the web page — never a misleading `0.00`.
+- The figures describe the **whole activity**. Per-kilometer splits and the
+  charts are unaffected.
 
 ## Web UI usage
 
@@ -59,8 +108,9 @@ gpx-stats serve --addr :8080
 ```
 
 Upload a GPX file — or drag one onto the map — to see the statistics, charts and
-the route. Optional form fields override the pause thresholds, and a dropped file
-uses whatever values the form currently shows. Nothing is persisted.
+the route. Optional form fields override the pause and elevation-noise
+thresholds, and a dropped file uses whatever values the form currently shows.
+Nothing is persisted.
 
 ### The map
 
@@ -105,8 +155,9 @@ page still renders.
 |------|---------|-----------|---------|
 | `--json` | off | stats | JSON output |
 | `--charts` | off | stats | ASCII charts |
-| `--pause-speed` | 1.0 | both | stationary speed threshold (km/h) |
-| `--pause-duration` | 10s | both | minimum pause duration |
+| `--pause-speed` | 0.1 | both | stationary speed threshold (km/h); a segment at or below it counts as stopped |
+| `--pause-duration` | 2m0s | both | minimum pause duration |
+| `--elevation-noise` | 1.0 | both | elevation jitter threshold (m) filtered out of ascent and descent |
 | `--max-points` | 500000 | both | maximum track points accepted |
 | `--addr` | `:8080` | serve | listen address |
 | `--max-upload` | 26214400 (25 MB) | serve | maximum upload size (bytes) |
@@ -129,7 +180,8 @@ task lint             # gofmt + go vet + golangci-lint
 
 - `cmd/gpx-stats` — thin entrypoint (CLI + `serve` dispatch)
 - `internal/gpx` — hardened GPX parser (stdlib `encoding/xml`)
-- `internal/stats` — pure statistics engine (distance, elevation, pauses, splits)
+- `internal/stats` — pure statistics engine (distance, elevation, effort,
+  pauses, splits)
 - `internal/config` — typed configuration
 - `internal/cli` — text/JSON output and ASCII charts (`asciigraph`)
 - `internal/web` — HTTP server, embedded templates/assets, SVG charts (`go-analyze/charts`)

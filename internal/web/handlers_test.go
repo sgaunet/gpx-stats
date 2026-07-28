@@ -101,6 +101,50 @@ func TestAnalyzeValid(t *testing.T) {
 	}
 }
 
+// TestAnalyzeShowsEffort pins the canonical headings and legend strings from
+// contracts/ui-labels.md on the results page. sample.gpx climbs 25 m over
+// 0.16 km, so the climb figure reads 0.41 and, with no descent, both
+// conventions agree.
+func TestAnalyzeShowsEffort(t *testing.T) {
+	rec := serve(t, testServer(t, nil), uploadRequest(t, fixtureBytes(t, "sample.gpx"), nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+
+	for _, want := range []string{
+		"Descending elevation",
+		"Effort km (climb)",
+		"Effort km (climb + descent)",
+		"0.41",
+		"100 m ascent = 1 km",
+		"100 m ascent = 1 km, 300 m descent = 1 km",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("results page missing %q", want)
+		}
+	}
+}
+
+// FR-010: a track without elevation shows n/a, never a fabricated 0.00.
+func TestAnalyzeEffortUnavailable(t *testing.T) {
+	rec := serve(t, testServer(t, nil), uploadRequest(t, fixtureBytes(t, "no_ele.gpx"), nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+
+	if !strings.Contains(body, "Effort km (climb)") {
+		t.Errorf("effort tiles should still be rendered")
+	}
+	if !strings.Contains(body, "n/a") {
+		t.Errorf("expected n/a for the unavailable elevation metrics")
+	}
+	if strings.Contains(body, "0.00") {
+		t.Errorf("must not render a zero effort figure when elevation is absent")
+	}
+}
+
 func TestAnalyzeInvalidFile(t *testing.T) {
 	rec := serve(t, testServer(t, nil), uploadRequest(t, []byte("this is not gpx"), nil))
 	if rec.Code != http.StatusBadRequest {
@@ -153,6 +197,43 @@ func TestAnalyzeInvalidPauseField(t *testing.T) {
 	rec := serve(t, testServer(t, nil), req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+// TestAnalyzeElevationNoiseOverride checks the threshold is overridable per
+// upload: a threshold larger than any rise filters all gain away, so the
+// elevation-derived figures read 0 instead of the default 25 m.
+func TestAnalyzeElevationNoiseOverride(t *testing.T) {
+	req := uploadRequest(t, fixtureBytes(t, "sample.gpx"), map[string]string{"elevation_noise": "1000"})
+	rec := serve(t, testServer(t, nil), req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), ">0 m<") {
+		t.Errorf("a 1000 m threshold should filter all gain away")
+	}
+}
+
+func TestAnalyzeInvalidElevationNoise(t *testing.T) {
+	req := uploadRequest(t, fixtureBytes(t, "sample.gpx"), map[string]string{"elevation_noise": "notanumber"})
+	rec := serve(t, testServer(t, nil), req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Elevation noise must be a number") {
+		t.Errorf("expected an actionable error message, got: %s", rec.Body.String())
+	}
+}
+
+// A negative threshold is caught by config validation, not by parsing.
+func TestAnalyzeNegativeElevationNoise(t *testing.T) {
+	req := uploadRequest(t, fixtureBytes(t, "sample.gpx"), map[string]string{"elevation_noise": "-1"})
+	rec := serve(t, testServer(t, nil), req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Invalid settings") {
+		t.Errorf("expected a validation error, got: %s", rec.Body.String())
 	}
 }
 

@@ -21,9 +21,16 @@ func WriteText(w io.Writer, r stats.Result) {
 
 	if r.HasElevation {
 		fmt.Fprintf(w, "Ascending elev.:   %.0f m\n", r.AscendingElevationM)
+		fmt.Fprintf(w, "Descending elev.:  %.0f m\n", r.DescendingElevationM)
 	} else {
 		fmt.Fprintln(w, "Ascending elev.:   unavailable (no elevation data)")
+		fmt.Fprintln(w, "Descending elev.:  unavailable (no elevation data)")
 	}
+
+	// Effort kilometers come before the time-based section on purpose: they are
+	// derived from distance and elevation only, so a track without timestamps
+	// must still report them.
+	writeEffort(w, r)
 
 	if !r.HasTimes {
 		fmt.Fprintln(w, "Time-based stats:  unavailable (no timestamps)")
@@ -44,6 +51,22 @@ func WriteText(w io.Writer, r stats.Result) {
 				s.Index, s.DistanceKm, formatDuration(s.Duration), s.SpeedKmh)
 		}
 	}
+}
+
+// writeEffort renders the two effort-kilometer conventions, each followed by
+// its legend. Their labels are wider than the column used by the statistics
+// above, so they form their own aligned block rather than re-aligning lines
+// that must stay unchanged. Neither convention is presented as the correct one.
+func writeEffort(w io.Writer, r stats.Result) {
+	if !r.HasElevation {
+		fmt.Fprintln(w, "Effort km:         unavailable (no elevation data)")
+		return
+	}
+	const labelWidth = -29 // widest label, "Effort km (climb + descent):"
+	fmt.Fprintf(w, "%*s %.2f\n", labelWidth, "Effort km (climb):", r.EffortKmClimb)
+	fmt.Fprintln(w, "  100 m ascent = 1 km")
+	fmt.Fprintf(w, "%*s %.2f\n", labelWidth, "Effort km (climb + descent):", r.EffortKmClimbDescent)
+	fmt.Fprintln(w, "  100 m ascent = 1 km, 300 m descent = 1 km")
 }
 
 // formatDuration renders a duration as a compact H/M/S string (rounded to the

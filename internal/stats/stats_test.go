@@ -36,8 +36,17 @@ func fullTrack() gpx.Track {
 	}
 }
 
+// pauseAwareConfig lowers the minimum pause duration so the 70s standstill in
+// fullTrack is detected. The default 2m minimum deliberately ignores it; this
+// config keeps the pause arithmetic under test regardless of that default.
+func pauseAwareConfig() config.Config {
+	cfg := config.Default()
+	cfg.MinPauseDuration = 10 * time.Second
+	return cfg
+}
+
 func TestComputeFull(t *testing.T) {
-	res := stats.Compute(fullTrack(), config.Default())
+	res := stats.Compute(fullTrack(), pauseAwareConfig())
 
 	if res.PointCount != 8 {
 		t.Errorf("PointCount = %d, want 8", res.PointCount)
@@ -98,6 +107,77 @@ func TestComputeNoTimes(t *testing.T) {
 	if !res.HasElevation || res.AscendingElevationM <= 0 {
 		t.Errorf("elevation should still be computed")
 	}
+	// FR-014: effort does not depend on timestamps, so it must be reported for
+	// a track that carries elevation but no times.
+	if res.EffortKmClimb <= 0 || res.EffortKmClimbDescent <= 0 {
+		t.Errorf("effort should be computed without timestamps, got %g and %g",
+			res.EffortKmClimb, res.EffortKmClimbDescent)
+	}
+}
+
+// hillTrack climbs then descends, so both D+ and D- are non-zero.
+func hillTrack() gpx.Track {
+	mk := func(lon, ele float64) gpx.TrackPoint {
+		return gpx.TrackPoint{Lat: 45, Lon: lon, Ele: ele, HasEle: true}
+	}
+	return gpx.Track{
+		HasElevation: true,
+		Points: []gpx.TrackPoint{
+			mk(6.0000, 100), mk(6.0010, 150), mk(6.0020, 200),
+			mk(6.0030, 150), mk(6.0040, 120),
+		},
+	}
+}
+
+func TestComputeEffort(t *testing.T) {
+	res := stats.Compute(hillTrack(), config.Default())
+
+	if !res.HasElevation {
+		t.Fatalf("fixture should carry elevation")
+	}
+	if res.AscendingElevationM <= 0 || res.DescendingElevationM <= 0 {
+		t.Fatalf("expected both gain and loss, got D+ %g and D- %g",
+			res.AscendingElevationM, res.DescendingElevationM)
+	}
+
+	// FR-002 / FR-004: built from the same figures that are reported.
+	wantClimb := res.TotalDistanceKm + res.AscendingElevationM/100
+	if math.Abs(res.EffortKmClimb-wantClimb) > 1e-9 {
+		t.Errorf("EffortKmClimb = %g, want %g", res.EffortKmClimb, wantClimb)
+	}
+
+	// FR-003 and data-model invariant 3.
+	wantBoth := wantClimb + res.DescendingElevationM/300
+	if math.Abs(res.EffortKmClimbDescent-wantBoth) > 1e-9 {
+		t.Errorf("EffortKmClimbDescent = %g, want %g", res.EffortKmClimbDescent, wantBoth)
+	}
+	if res.EffortKmClimbDescent <= res.EffortKmClimb {
+		t.Errorf("descent must add effort: %g not above %g",
+			res.EffortKmClimbDescent, res.EffortKmClimb)
+	}
+}
+
+// FR-010: without elevation the three fields stay zero so callers render them
+// as unavailable rather than as a real zero.
+func TestComputeNoElevationLeavesEffortZero(t *testing.T) {
+	track := gpx.Track{
+		Points: []gpx.TrackPoint{
+			{Lat: 45, Lon: 6.0000},
+			{Lat: 45, Lon: 6.0010},
+		},
+	}
+	res := stats.Compute(track, config.Default())
+
+	if res.HasElevation {
+		t.Fatalf("fixture should not carry elevation")
+	}
+	if res.DescendingElevationM != 0 || res.EffortKmClimb != 0 || res.EffortKmClimbDescent != 0 {
+		t.Errorf("effort fields must stay zero without elevation, got %g, %g, %g",
+			res.DescendingElevationM, res.EffortKmClimb, res.EffortKmClimbDescent)
+	}
+	if res.TotalDistanceKm <= 0 {
+		t.Errorf("distance should still be computed, got %g", res.TotalDistanceKm)
+	}
 }
 
 func TestComputeEmpty(t *testing.T) {
@@ -117,6 +197,26 @@ func TestComputeSinglePoint(t *testing.T) {
 	}
 	if res.TotalDistanceKm != 0 {
 		t.Errorf("single point distance = %g, want 0", res.TotalDistanceKm)
+	}
+}
+
+// TestComputeDefaultsIgnoreShortPause documents the default thresholds: the 70s
+// standstill in fullTrack is well under the stationary-speed threshold, but its
+// duration falls under the 2m minimum, so it is not counted as a pause.
+func TestComputeDefaultsIgnoreShortPause(t *testing.T) {
+	res := stats.Compute(fullTrack(), config.Default())
+
+	if res.PauseCount != 0 || res.PauseTime != 0 {
+		t.Errorf("a 70s stop is below the 2m default minimum, got %d pauses (%s)",
+			res.PauseCount, res.PauseTime)
+	}
+	if res.MovingTime != res.TotalTime {
+		t.Errorf("with no pause, moving time %s should equal total time %s",
+			res.MovingTime, res.TotalTime)
+	}
+	if res.AvgMovingSpeedKmh != res.AvgSpeedKmh {
+		t.Errorf("with no pause, moving speed %g should equal overall speed %g",
+			res.AvgMovingSpeedKmh, res.AvgSpeedKmh)
 	}
 }
 

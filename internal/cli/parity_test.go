@@ -69,6 +69,31 @@ func TestCLIWebParity(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), wantDistStr) {
 		t.Errorf("web page missing distance %q", wantDistStr)
 	}
+
+	// Effort kilometers must agree across both transports: they are computed
+	// once in stats.Compute and only read here (003 FR-005, SC-003).
+	for _, f := range []struct {
+		key  string
+		want float64
+	}{
+		{"descendingElevationM", want.DescendingElevationM},
+		{"effortKmClimb", want.EffortKmClimb},
+		{"effortKmClimbDescent", want.EffortKmClimbDescent},
+	} {
+		if v := floatField(t, got, f.key); math.Abs(v-round3(f.want)) > 1e-9 {
+			t.Errorf("cli %s %.3f != engine %.3f", f.key, v, f.want)
+		}
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		fmt.Sprintf("%.0f m", want.DescendingElevationM),
+		fmt.Sprintf("%.2f", want.EffortKmClimb),
+		fmt.Sprintf("%.2f", want.EffortKmClimbDescent),
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("web page missing effort value %q", want)
+		}
+	}
 }
 
 // round3 mirrors the CLI's JSON rounding for comparison.

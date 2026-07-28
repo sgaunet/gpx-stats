@@ -14,19 +14,23 @@ import (
 // contracts/stats.schema.json: camelCase keys, durations in seconds, and
 // pointers so unavailable metrics serialize as null rather than zero.
 type jsonResult struct {
-	TotalDistanceKm     float64     `json:"totalDistanceKm"`
-	AscendingElevationM *float64    `json:"ascendingElevationM"`
-	HasElevation        bool        `json:"hasElevation"`
-	TotalTimeSeconds    *float64    `json:"totalTimeSeconds"`
-	MovingTimeSeconds   *float64    `json:"movingTimeSeconds"`
-	PauseTimeSeconds    *float64    `json:"pauseTimeSeconds"`
-	PauseCount          *int        `json:"pauseCount"`
-	HasTimes            bool        `json:"hasTimes"`
-	AvgSpeedKmh         *float64    `json:"avgSpeedKmh"`
-	AvgMovingSpeedKmh   *float64    `json:"avgMovingSpeedKmh"`
-	PointCount          int         `json:"pointCount"`
-	Splits              []jsonSplit `json:"splits"`
-	Pauses              []jsonPause `json:"pauses"`
+	TotalDistanceKm      float64  `json:"totalDistanceKm"`
+	AscendingElevationM  *float64 `json:"ascendingElevationM"`
+	DescendingElevationM *float64 `json:"descendingElevationM"`
+	EffortKmClimb        *float64 `json:"effortKmClimb"`
+	EffortKmClimbDescent *float64 `json:"effortKmClimbDescent"`
+
+	HasElevation      bool        `json:"hasElevation"`
+	TotalTimeSeconds  *float64    `json:"totalTimeSeconds"`
+	MovingTimeSeconds *float64    `json:"movingTimeSeconds"`
+	PauseTimeSeconds  *float64    `json:"pauseTimeSeconds"`
+	PauseCount        *int        `json:"pauseCount"`
+	HasTimes          bool        `json:"hasTimes"`
+	AvgSpeedKmh       *float64    `json:"avgSpeedKmh"`
+	AvgMovingSpeedKmh *float64    `json:"avgMovingSpeedKmh"`
+	PointCount        int         `json:"pointCount"`
+	Splits            []jsonSplit `json:"splits"`
+	Pauses            []jsonPause `json:"pauses"`
 }
 
 type jsonSplit struct {
@@ -57,8 +61,14 @@ func toJSON(r stats.Result) jsonResult {
 		Pauses:          []jsonPause{},
 	}
 	if r.HasElevation {
-		v := round3(r.AscendingElevationM)
-		j.AscendingElevationM = &v
+		asc := round3(r.AscendingElevationM)
+		desc := round3(r.DescendingElevationM)
+		climb := round3(r.EffortKmClimb)
+		both := round3(r.EffortKmClimbDescent)
+		j.AscendingElevationM = &asc
+		j.DescendingElevationM = &desc
+		j.EffortKmClimb = &climb
+		j.EffortKmClimbDescent = &both
 	}
 	if r.HasTimes {
 		tt := round3(r.TotalTime.Seconds())

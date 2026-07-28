@@ -85,12 +85,48 @@ func TestWriteJSONUnavailableAreNull(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	for _, k := range []string{"ascendingElevationM", "totalTimeSeconds", "avgSpeedKmh", "pauseCount"} {
+	for _, k := range []string{
+		"ascendingElevationM", "descendingElevationM",
+		"effortKmClimb", "effortKmClimbDescent",
+		"totalTimeSeconds", "avgSpeedKmh", "pauseCount",
+	} {
 		if v, ok := m[k]; !ok || v != nil {
 			t.Errorf("%q should be null when unavailable, got %v (present=%v)", k, v, ok)
 		}
 	}
 	if arr, ok := m["splits"].([]any); !ok || len(arr) != 0 {
 		t.Errorf("splits should be an empty array, got %v", m["splits"])
+	}
+}
+
+// TestWriteJSONEffort covers the SC-001 reference route through the wire
+// format: keys and values as declared in contracts/stats-additions.md.
+func TestWriteJSONEffort(t *testing.T) {
+	r := stats.Result{
+		TotalDistanceKm:      10,
+		AscendingElevationM:  500,
+		DescendingElevationM: 300,
+		EffortKmClimb:        15,
+		EffortKmClimbDescent: 16,
+		HasElevation:         true,
+		PointCount:           8,
+	}
+	var buf bytes.Buffer
+	if err := cli.WriteJSON(&buf, r); err != nil {
+		t.Fatalf("WriteJSON: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+
+	for key, want := range map[string]float64{
+		"descendingElevationM": 300,
+		"effortKmClimb":        15,
+		"effortKmClimbDescent": 16,
+	} {
+		if got := floatField(t, m, key); got != want {
+			t.Errorf("%s = %v, want %v", key, got, want)
+		}
 	}
 }

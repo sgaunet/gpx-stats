@@ -69,6 +69,33 @@ func TestDetectPausesNoneWhenMoving(t *testing.T) {
 	}
 }
 
+// TestDetectPausesThresholdIsInclusive pins the inclusive comparison, which is
+// what makes a 0 km/h threshold meaningful: a segment at exactly the threshold
+// speed counts as stationary.
+func TestDetectPausesThresholdIsInclusive(t *testing.T) {
+	// Two points 20s apart at the same position: speed is exactly 0.
+	pts := []gpx.TrackPoint{
+		tpt(6.0000, 0),
+		tpt(6.0000, 20),
+	}
+
+	pauses, total := stats.DetectPauses(pts, 0, 10*time.Second)
+	if len(pauses) != 1 || total != 20*time.Second {
+		t.Errorf("a true standstill must count at a 0 threshold, got %d pauses (%s)",
+			len(pauses), total)
+	}
+
+	// The slightest movement no longer qualifies at that threshold.
+	moving := []gpx.TrackPoint{
+		tpt(6.0000, 0),
+		tpt(6.0001, 20),
+	}
+	if pauses, total := stats.DetectPauses(moving, 0, 10*time.Second); len(pauses) != 0 || total != 0 {
+		t.Errorf("movement must not count at a 0 threshold, got %d pauses (%s)",
+			len(pauses), total)
+	}
+}
+
 func TestDetectPausesOutOfOrderIgnored(t *testing.T) {
 	// A backwards timestamp segment must be skipped without panicking, and the
 	// remaining moving segments yield no pause.

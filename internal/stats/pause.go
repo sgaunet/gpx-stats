@@ -6,9 +6,13 @@ import (
 	"github.com/sgaunet/gpx-stats/internal/gpx"
 )
 
-// detectPauses groups consecutive stationary segments (segment speed below
-// stationaryKmh) into pauses. A run counts as a pause only if its total
+// detectPauses groups consecutive stationary segments (segment speed at or
+// below stationaryKmh) into pauses. A run counts as a pause only if its total
 // duration reaches minDuration. Returns the pauses and their total time.
+//
+// The comparison is inclusive so that a stationaryKmh of 0 stays meaningful: it
+// then matches only a true standstill, where consecutive points share the same
+// position and the segment speed is exactly zero.
 //
 // Segments whose endpoints lack timestamps, or whose timestamps are
 // non-increasing (duplicate/out-of-order), are ignored rather than treated as
@@ -44,7 +48,7 @@ func detectPauses(points []gpx.TrackPoint, stationaryKmh float64, minDuration ti
 		}
 		distKm := haversineKm(p0.Lat, p0.Lon, p1.Lat, p1.Lon)
 		speedKmh := distKm / dt.Hours()
-		if speedKmh < stationaryKmh {
+		if speedKmh <= stationaryKmh {
 			if !inRun {
 				inRun = true
 				runStart = p0.Time
