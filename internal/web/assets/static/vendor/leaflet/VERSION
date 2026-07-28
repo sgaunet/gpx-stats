@@ -1,0 +1,56 @@
+Leaflet
+=======
+
+Version:   1.9.4
+Released:  2023-05-18
+License:   BSD-2-Clause (see LICENSE in this directory)
+Homepage:  https://leafletjs.com/
+Source:    https://github.com/Leaflet/Leaflet/releases/tag/v1.9.4
+
+Vendored on: 2026-07-28
+
+Retrieved from
+--------------
+  leaflet.js   https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
+  leaflet.css  https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
+  LICENSE      https://raw.githubusercontent.com/Leaflet/Leaflet/v1.9.4/LICENSE
+
+SHA-256
+-------
+  db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a  leaflet.js
+  a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6  leaflet.css
+  53e8dc25862014e4324741ca18fbe3611e11d42ef69f59f86ea8c5389647d4cb  LICENSE
+
+Verify with:
+  shasum -a 256 leaflet.js leaflet.css LICENSE
+
+Why vendored
+------------
+The application must remain a single self-contained artefact with no run-time
+dependency on an external content network (spec 002-map-view, FR-018). A CDN
+<script> tag is therefore not an option. These files are embedded into the
+binary by the //go:embed assets/static/* directive in internal/web/server.go,
+which recurses into this directory.
+
+Only map *imagery* (tiles) is fetched at run time, and it is fetched by the
+user's browser directly from the tile provider — never by the server
+(FR-021).
+
+Note on marker icons
+--------------------
+Leaflet's default marker uses marker-icon.png / marker-shadow.png / layers.png,
+referenced by URL relative to leaflet.css. Those images are deliberately NOT
+vendored: the map uses L.divIcon with text labels instead (research.md R9), so
+no image assets are needed and there is no CSS-relative URL to rewrite.
+
+Upgrading
+---------
+1. Download the three files from the new tag.
+2. Update the version, date and SHA-256 values above.
+3. Re-run: go test ./internal/web/... (asset-serving tests must stay green).
+4. Re-run the quickstart browser checklist — Leaflet upgrades can change
+   control markup and full-screen sizing behaviour.
+
+Leaflet 2.x is intentionally NOT used: as of this writing it is pre-release
+(2.0.0-alpha.1) and ESM-only, which would require a JavaScript module loader
+in a project that deliberately has no JS build toolchain (research.md R1).

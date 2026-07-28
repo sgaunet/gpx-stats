@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -8,20 +9,119 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sgaunet/gpx-stats/internal/geo"
 	"github.com/sgaunet/gpx-stats/internal/gpx"
 	"github.com/sgaunet/gpx-stats/internal/stats"
 )
+
+// Landing-page map view. Fixed constants on purpose: the map must not ask for
+// the browser's location, and must not infer a view from anything previously
+// analysed. A wide view simply says "this tool is about places".
+const (
+	landingCenterLat = 20.0
+	landingCenterLon = 0.0
+	landingZoom      = 2
+)
+
+// mapConfig is the JSON handed to the browser as #gpx-map-config. It carries
+// framing hints and the layer table; the coordinates travel separately so the
+// large payload is not re-parsed as part of this small object.
+type mapConfig struct {
+	HasRoute   bool        `json:"hasRoute"`
+	PointCount int         `json:"pointCount"`
+	UseBounds  bool        `json:"useBounds"`
+	Bounds     *[4]float64 `json:"bounds,omitempty"`
+	Center     [2]float64  `json:"center"`
+	Zoom       int         `json:"zoom"`
+	Dropzone   bool        `json:"dropzone"`
+	Layers     []baseLayer `json:"layers"`
+}
+
+// mapView is what the template needs to render a map.
+type mapView struct {
+	// Show is false when there is nothing to draw and no reason to show a map
+	// at all — a results page for a track with no usable coordinates. The
+	// template omits the whole section rather than rendering an empty map.
+	Show bool
+
+	// HasRoute distinguishes "map with a track on it" from "empty map".
+	HasRoute bool
+
+	// ConfigJSON and RouteJSON are pre-marshalled and injected into
+	// <script type="application/json"> blocks.
+	//
+	// They are template.JS, which bypasses contextual escaping, so the safety
+	// argument matters: RouteJSON is json.Marshal over a []float64 whose values
+	// the GPX parser has already bounded, making it digits, '.', '-', ',' and
+	// brackets only. No such string can contain "</script>". A test enforces
+	// that invariant rather than trusting this comment. ConfigJSON is built
+	// from the fixed layer table plus numbers — no user input reaches it.
+	ConfigJSON template.JS
+	RouteJSON  template.JS
+}
+
+// buildMapView assembles the map payload for a page. Passing the zero
+// geo.Route yields an empty map at the fixed landing view.
+func buildMapView(route geo.Route, dropzone bool) (mapView, error) {
+	cfg := mapConfig{
+		HasRoute:   route.PointCount > 0,
+		PointCount: route.PointCount,
+		UseBounds:  route.UseBounds,
+		Center:     [2]float64{landingCenterLat, landingCenterLon},
+		Zoom:       landingZoom,
+		Dropzone:   dropzone,
+		Layers:     baseLayers,
+	}
+	if route.PointCount > 0 {
+		cfg.Center = route.Center
+		cfg.Zoom = geo.DefaultPointZoom
+	}
+	if route.UseBounds {
+		bounds := route.Bounds
+		cfg.Bounds = &bounds
+	}
+
+	cfgJSON, err := json.Marshal(cfg)
+	if err != nil {
+		return mapView{}, fmt.Errorf("marshalling map config: %w", err)
+	}
+
+	v := mapView{
+		Show:       true,
+		HasRoute:   cfg.HasRoute,
+		ConfigJSON: template.JS(cfgJSON), //nolint:gosec // numeric + fixed table, see doc comment
+	}
+
+	if cfg.HasRoute {
+		coordsJSON, cerr := json.Marshal(route.Coords)
+		if cerr != nil {
+			return mapView{}, fmt.Errorf("marshalling route coordinates: %w", cerr)
+		}
+		v.RouteJSON = template.JS(coordsJSON) //nolint:gosec // bounded float64s only, see doc comment
+	}
+
+	return v, nil
+}
 
 func (s *Server) handleIndex(w http.ResponseWriter, _ *http.Request) {
 	s.renderIndex(w, http.StatusOK, "")
 }
 
 func (s *Server) renderIndex(w http.ResponseWriter, status int, errMsg string) {
+	// An empty map at a fixed view, doubling as a drop target for a GPX file.
+	// A failure here must not cost the user the upload form, so the page falls
+	// back to rendering without a map.
+	mv, err := buildMapView(geo.Route{}, true)
+	if err != nil {
+		s.log.Error("building landing map view", "err", err)
+		mv = mapView{}
+	}
 	data := map[string]any{
 		"MaxUploadMB":   s.cfg.MaxUploadBytes / (1 << 20),
 		"PauseSpeed":    s.cfg.StationarySpeedKmh,
 		"PauseDuration": s.cfg.MinPauseDuration.String(),
 		"Error":         errMsg,
+		"Map":           mv,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
@@ -131,6 +231,7 @@ type resultView struct {
 	ElevationDistanceChart template.HTML
 	ElevationTimeChart     template.HTML
 	SpeedChart             template.HTML
+	Map                    mapView
 }
 
 func (s *Server) buildView(track gpx.Track, res stats.Result) (resultView, error) {
@@ -158,6 +259,18 @@ func (s *Server) buildView(track gpx.Track, res stats.Result) (resultView, error
 				SpeedKmh:   fmt.Sprintf("%.2f", sp.SpeedKmh),
 			})
 		}
+	}
+
+	// The route map. A track with no usable coordinates yields Show == false,
+	// and the template omits the map section entirely rather than rendering an
+	// empty one. The drop target belongs to the landing page only.
+	route := geo.BuildRoute(track)
+	if route.PointCount > 0 {
+		mv, merr := buildMapView(route, false)
+		if merr != nil {
+			return resultView{}, merr
+		}
+		v.Map = mv
 	}
 
 	eleDist, err := elevationVsDistanceSVG(track)

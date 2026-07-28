@@ -5,21 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>gpx-stats</title>
   <link rel="stylesheet" href="/static/bulma.min.css">
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/static/map.css">
 </head>
 <body>
   <section class="section">
     <div class="container">
       <h1 class="title">GPX Statistics</h1>
-      <h2 class="subtitle">Upload a GPX file to see your activity statistics and charts.</h2>
+      <h2 class="subtitle">Upload a GPX file — or drop it on the map — to see your activity statistics and charts.</h2>
 
       <div class="notification is-info is-light">
         <strong>Privacy:</strong> your file is processed in memory and is
-        <strong>not stored</strong>. Nothing is written to disk and no data leaves this server.
+        <strong>not stored</strong>. Nothing is written to disk, and your file
+        and its statistics never leave this server.
+        <br>
+        Map backgrounds are the one exception: they are loaded by
+        <strong>your browser</strong> directly from the map provider, which can
+        therefore see the area of the map you are looking at. Your GPX file is
+        never sent to them.
       </div>
 
       {{if .Error}}
       <div class="notification is-danger">{{.Error}}</div>
       {{end}}
+
+      {{template "mapview" .Map}}
 
       <div class="box">
         <form action="/analyze" method="post" enctype="multipart/form-data">
@@ -60,5 +70,7 @@
       </div>
     </div>
   </section>
+  <script src="/static/vendor/leaflet/leaflet.js"></script>
+  <script src="/static/map.js"></script>
 </body>
 </html>

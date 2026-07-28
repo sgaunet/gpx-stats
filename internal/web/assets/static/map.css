@@ -1,0 +1,106 @@
+/* Map presentation for gpx-stats.
+ *
+ * Kept small and additive: Bulma styles the page, Leaflet styles the map, and
+ * this file only covers what neither provides — container sizing, the start and
+ * end markers, the full-screen fallback, and the drop-target affordance.
+ */
+
+.gpx-map-wrapper {
+  position: relative;
+}
+
+.gpx-map {
+  /* Leaflet needs an explicit height; a percentage would collapse to zero. */
+  height: 460px;
+  width: 100%;
+  border-radius: 4px;
+  background-color: #e8e8e8; /* visible when tiles fail to load */
+}
+
+@media screen and (max-width: 768px) {
+  .gpx-map {
+    height: 320px;
+  }
+}
+
+/* Start and end markers.
+ *
+ * Letters, not just colours: colour alone is not a usable distinction for
+ * everyone, and using text avoids vendoring Leaflet's marker PNGs entirely.
+ */
+.gpx-endpoint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  font: bold 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #fff;
+}
+
+.gpx-endpoint-start {
+  background-color: #257942; /* Bulma green */
+}
+
+.gpx-endpoint-end {
+  background-color: #cc0f35; /* Bulma red */
+}
+
+/* Full-screen fallback.
+ *
+ * Used when the Fullscreen API is unavailable or rejects the request. The map
+ * still fills the viewport; only the browser chrome remains visible.
+ */
+.gpx-map.is-pseudo-fullscreen {
+  position: fixed;
+  inset: 0;
+  height: 100% !important;
+  width: 100%;
+  z-index: 3000; /* above Bulma's navbar/modal range */
+  border-radius: 0;
+}
+
+/* The native Fullscreen API sizes the element itself; make sure it fills. */
+.gpx-map:fullscreen {
+  height: 100%;
+  width: 100%;
+  border-radius: 0;
+}
+
+.gpx-fullscreen-control a {
+  font-size: 16px;
+  line-height: 26px;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Drop target.
+ *
+ * Only ever applied on the landing page, and only while a drag is over the map.
+ */
+.gpx-map.is-drop-target {
+  outline: 3px dashed #3e8ed0; /* Bulma link blue */
+  outline-offset: -6px;
+}
+
+.gpx-drop-message {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.gpx-drop-message[hidden] {
+  display: none;
+}
+
+.gpx-drop-message.is-error {
+  color: #cc0f35;
+}
+
+/* Leaflet's attribution must stay legible: it is a licence obligation, not
+ * decoration, so it never gets shrunk out of readability or hidden. */
+.leaflet-control-attribution {
+  font-size: 11px;
+}

@@ -63,7 +63,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("POST /analyze", s.handleAnalyze)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
-	return mux
+	// The results page embeds every track point, so compression is what keeps
+	// a large activity a reasonable download.
+	return gzipMiddleware(mux)
 }
 
 // ListenAndServe starts the server with sane timeouts.
