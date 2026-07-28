@@ -218,6 +218,9 @@ type splitView struct {
 type resultView struct {
 	TotalDistanceKm        string
 	AscendingElevationM    string
+	DescendingElevationM   string
+	EffortKmClimb          string
+	EffortKmClimbDescent   string
 	HasElevation           bool
 	TotalTime              string
 	MovingTime             string
@@ -243,6 +246,9 @@ func (s *Server) buildView(track gpx.Track, res stats.Result) (resultView, error
 	}
 	if res.HasElevation {
 		v.AscendingElevationM = fmt.Sprintf("%.0f", res.AscendingElevationM)
+		v.DescendingElevationM = fmt.Sprintf("%.0f", res.DescendingElevationM)
+		v.EffortKmClimb = fmt.Sprintf("%.2f", res.EffortKmClimb)
+		v.EffortKmClimbDescent = fmt.Sprintf("%.2f", res.EffortKmClimbDescent)
 	}
 	if res.HasTimes {
 		v.TotalTime = formatDuration(res.TotalTime)

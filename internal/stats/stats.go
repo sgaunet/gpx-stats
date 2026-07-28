@@ -24,6 +24,12 @@ func Compute(track gpx.Track, cfg config.Config) Result {
 	res.HasElevation = track.HasElevation
 	if track.HasElevation {
 		res.AscendingElevationM = ascendingElevation(pts, cfg.ElevationNoiseMeters)
+		res.DescendingElevationM = descendingElevation(pts, cfg.ElevationNoiseMeters)
+		// Effort kilometers are derived from the same filtered figures that are
+		// reported, so a reader can reproduce them from the numbers on screen.
+		res.EffortKmClimb = effortKmClimb(res.TotalDistanceKm, res.AscendingElevationM)
+		res.EffortKmClimbDescent = effortKmClimbDescent(
+			res.TotalDistanceKm, res.AscendingElevationM, res.DescendingElevationM)
 	}
 
 	res.HasTimes = track.HasTimes
