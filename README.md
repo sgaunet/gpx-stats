@@ -20,9 +20,12 @@ server-side network calls, nothing stored.**
   base layers (OpenStreetMap, OpenTopoMap, CyclOSM, Humanitarian), framed on the
   activity with start/end markers, and expandable to full screen. Every recorded
   point is drawn — the line is never simplified.
-- **MVP statistics**: total distance (km), ascending elevation (m), total /
-  moving / pause time, number of pauses, average and moving speed (km/h), and
-  per-kilometer splits (time + speed).
+- **MVP statistics**: total distance (km), ascending and descending elevation
+  (m), total / moving / pause time, number of pauses, average and moving speed
+  (km/h), and per-kilometer splits (time + speed).
+- **Effort kilometers**: the flat distance that would cost the same effort as
+  the hilly route, reported under both common conventions. See
+  [Effort kilometers](#effort-kilometers).
 - **Safe by construction**: GPX is parsed with the standard library
   `encoding/xml`, which ignores DTDs and external entities, so XXE and
   entity-expansion ("billion laughs") attacks are neutralised. Input is bounded
@@ -54,6 +57,49 @@ gpx-stats --elevation-noise 3 path/to/activity.gpx
 
 Errors are written to stderr with a non-zero exit code (1 runtime, 2 usage).
 
+## Effort kilometers
+
+A hilly route costs more than its flat distance suggests. *Effort kilometers*
+("km-effort") restate it as the flat distance that would cost the same effort.
+
+Two conventions are in common use, so **both are reported and neither is
+presented as the correct one** — pick whichever your club, race or training plan
+already uses:
+
+| Figure | Formula | Legend |
+|--------|---------|--------|
+| Effort km (climb) | distance + D+/100 | 100 m ascent = 1 km |
+| Effort km (climb + descent) | distance + D+/100 + D-/300 | 100 m ascent = 1 km, 300 m descent = 1 km |
+
+For a 10 km route with 500 m of ascent and 300 m of descent, they read **15.00**
+and **16.00**.
+
+Both figures appear in the CLI, in `--json` and on the web results page, each
+above its own legend — here as an excerpt of `gpx-stats testdata/sample.gpx`:
+
+```
+Total distance:    0.16 km
+Ascending elev.:   25 m
+Descending elev.:  0 m
+Effort km (climb):            0.41
+  100 m ascent = 1 km
+Effort km (climb + descent):  0.41
+  100 m ascent = 1 km, 300 m descent = 1 km
+```
+
+Notes:
+
+- **Descending elevation (D-)** is reported in its own right, as a positive
+  number. It mirrors the ascent calculation and filters jitter with the same
+  `--elevation-noise` threshold, so an out-and-back route reports comparable
+  gain and loss instead of an inflated descent.
+- Effort needs only distance and elevation, so it is reported for tracks that
+  carry **no timestamps** — where every time-based statistic is unavailable.
+- A track with **no elevation data** shows `unavailable (no elevation data)` in
+  text, `null` in JSON and `n/a` on the web page — never a misleading `0.00`.
+- The figures describe the **whole activity**. Per-kilometer splits and the
+  charts are unaffected.
+
 ## Web UI usage
 
 ```sh
@@ -62,8 +108,9 @@ gpx-stats serve --addr :8080
 ```
 
 Upload a GPX file — or drag one onto the map — to see the statistics, charts and
-the route. Optional form fields override the pause thresholds, and a dropped file
-uses whatever values the form currently shows. Nothing is persisted.
+the route. Optional form fields override the pause and elevation-noise
+thresholds, and a dropped file uses whatever values the form currently shows.
+Nothing is persisted.
 
 ### The map
 
@@ -133,7 +180,8 @@ task lint             # gofmt + go vet + golangci-lint
 
 - `cmd/gpx-stats` — thin entrypoint (CLI + `serve` dispatch)
 - `internal/gpx` — hardened GPX parser (stdlib `encoding/xml`)
-- `internal/stats` — pure statistics engine (distance, elevation, pauses, splits)
+- `internal/stats` — pure statistics engine (distance, elevation, effort,
+  pauses, splits)
 - `internal/config` — typed configuration
 - `internal/cli` — text/JSON output and ASCII charts (`asciigraph`)
 - `internal/web` — HTTP server, embedded templates/assets, SVG charts (`go-analyze/charts`)
