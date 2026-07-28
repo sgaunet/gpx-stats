@@ -243,6 +243,7 @@ func TestIndexFormUnchanged(t *testing.T) {
 		`id="file"`,
 		`name="pause_speed"`,
 		`name="pause_duration"`,
+		`name="elevation_noise"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("upload form is missing %q", want)

@@ -36,8 +36,17 @@ func fullTrack() gpx.Track {
 	}
 }
 
+// pauseAwareConfig lowers the minimum pause duration so the 70s standstill in
+// fullTrack is detected. The default 2m minimum deliberately ignores it; this
+// config keeps the pause arithmetic under test regardless of that default.
+func pauseAwareConfig() config.Config {
+	cfg := config.Default()
+	cfg.MinPauseDuration = 10 * time.Second
+	return cfg
+}
+
 func TestComputeFull(t *testing.T) {
-	res := stats.Compute(fullTrack(), config.Default())
+	res := stats.Compute(fullTrack(), pauseAwareConfig())
 
 	if res.PointCount != 8 {
 		t.Errorf("PointCount = %d, want 8", res.PointCount)
@@ -188,6 +197,26 @@ func TestComputeSinglePoint(t *testing.T) {
 	}
 	if res.TotalDistanceKm != 0 {
 		t.Errorf("single point distance = %g, want 0", res.TotalDistanceKm)
+	}
+}
+
+// TestComputeDefaultsIgnoreShortPause documents the default thresholds: the 70s
+// standstill in fullTrack is well under the stationary-speed threshold, but its
+// duration falls under the 2m minimum, so it is not counted as a pause.
+func TestComputeDefaultsIgnoreShortPause(t *testing.T) {
+	res := stats.Compute(fullTrack(), config.Default())
+
+	if res.PauseCount != 0 || res.PauseTime != 0 {
+		t.Errorf("a 70s stop is below the 2m default minimum, got %d pauses (%s)",
+			res.PauseCount, res.PauseTime)
+	}
+	if res.MovingTime != res.TotalTime {
+		t.Errorf("with no pause, moving time %s should equal total time %s",
+			res.MovingTime, res.TotalTime)
+	}
+	if res.AvgMovingSpeedKmh != res.AvgSpeedKmh {
+		t.Errorf("with no pause, moving speed %g should equal overall speed %g",
+			res.AvgMovingSpeedKmh, res.AvgSpeedKmh)
 	}
 }
 

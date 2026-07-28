@@ -12,11 +12,14 @@ func TestDefaultIsValid(t *testing.T) {
 		t.Fatalf("Default() should be valid, got: %v", err)
 	}
 	d := config.Default()
-	if d.StationarySpeedKmh != 1.0 {
-		t.Errorf("default stationary speed = %g, want 1.0", d.StationarySpeedKmh)
+	if d.StationarySpeedKmh != 0.1 {
+		t.Errorf("default stationary speed = %g, want 0.1", d.StationarySpeedKmh)
 	}
-	if d.MinPauseDuration != 10*time.Second {
-		t.Errorf("default min pause = %s, want 10s", d.MinPauseDuration)
+	if d.MinPauseDuration != 120*time.Second {
+		t.Errorf("default min pause = %s, want 2m0s", d.MinPauseDuration)
+	}
+	if d.ElevationNoiseMeters != 1.0 {
+		t.Errorf("default elevation noise = %g, want 1.0", d.ElevationNoiseMeters)
 	}
 	if d.MaxUploadBytes != 25<<20 {
 		t.Errorf("default max upload = %d, want %d", d.MaxUploadBytes, 25<<20)

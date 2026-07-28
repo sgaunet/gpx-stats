@@ -23,8 +23,11 @@ func runServe(args []string, _ io.Writer, stderr io.Writer) int {
 	addr := fs.String("addr", config.DefaultServerAddr, "listen address")
 	maxUpload := fs.Int64("max-upload", config.DefaultMaxUploadBytes, "maximum upload size in bytes")
 	maxPoints := fs.Int("max-points", config.DefaultMaxTrackPoints, "maximum track points accepted")
-	pauseSpeed := fs.Float64("pause-speed", config.DefaultStationarySpeedKmh, "default stationary speed threshold in km/h")
+	pauseSpeed := fs.Float64("pause-speed", config.DefaultStationarySpeedKmh,
+		"default stationary speed threshold in km/h (overridable per request)")
 	pauseDur := fs.Duration("pause-duration", config.DefaultMinPauseDuration, "default minimum pause duration")
+	elevNoise := fs.Float64("elevation-noise", config.DefaultElevationNoiseMeters,
+		"default elevation jitter threshold in meters (overridable per request)")
 
 	if code, done := parseFlags(fs, args, stderr); done {
 		return code
@@ -36,6 +39,7 @@ func runServe(args []string, _ io.Writer, stderr io.Writer) int {
 	cfg.MaxTrackPoints = *maxPoints
 	cfg.StationarySpeedKmh = *pauseSpeed
 	cfg.MinPauseDuration = *pauseDur
+	cfg.ElevationNoiseMeters = *elevNoise
 	if err := cfg.Validate(); err != nil {
 		fmt.Fprintf(stderr, "error: invalid configuration: %v\n", err)
 		return exitUsage

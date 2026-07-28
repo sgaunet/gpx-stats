@@ -200,6 +200,43 @@ func TestAnalyzeInvalidPauseField(t *testing.T) {
 	}
 }
 
+// TestAnalyzeElevationNoiseOverride checks the threshold is overridable per
+// upload: a threshold larger than any rise filters all gain away, so the
+// elevation-derived figures read 0 instead of the default 25 m.
+func TestAnalyzeElevationNoiseOverride(t *testing.T) {
+	req := uploadRequest(t, fixtureBytes(t, "sample.gpx"), map[string]string{"elevation_noise": "1000"})
+	rec := serve(t, testServer(t, nil), req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), ">0 m<") {
+		t.Errorf("a 1000 m threshold should filter all gain away")
+	}
+}
+
+func TestAnalyzeInvalidElevationNoise(t *testing.T) {
+	req := uploadRequest(t, fixtureBytes(t, "sample.gpx"), map[string]string{"elevation_noise": "notanumber"})
+	rec := serve(t, testServer(t, nil), req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Elevation noise must be a number") {
+		t.Errorf("expected an actionable error message, got: %s", rec.Body.String())
+	}
+}
+
+// A negative threshold is caught by config validation, not by parsing.
+func TestAnalyzeNegativeElevationNoise(t *testing.T) {
+	req := uploadRequest(t, fixtureBytes(t, "sample.gpx"), map[string]string{"elevation_noise": "-1"})
+	rec := serve(t, testServer(t, nil), req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Invalid settings") {
+		t.Errorf("expected a validation error, got: %s", rec.Body.String())
+	}
+}
+
 func TestAnalyzeRejectsGET(t *testing.T) {
 	rec := serve(t, testServer(t, nil), getRequest(t, "/analyze"))
 	if rec.Code != http.StatusMethodNotAllowed {

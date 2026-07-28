@@ -76,6 +76,40 @@ func TestRunPauseFlagsParsed(t *testing.T) {
 	}
 }
 
+// TestRunElevationNoiseFlagParsed checks the threshold is reachable from the
+// command line and actually changes the reported ascent: a huge threshold
+// filters every rise away, so gain collapses to zero.
+func TestRunElevationNoiseFlagParsed(t *testing.T) {
+	code, out, errOut := run("--elevation-noise", "0", samplePath())
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut)
+	}
+	if !strings.Contains(out, "Ascending elev.:") {
+		t.Fatalf("expected elevation stats, got:\n%s", out)
+	}
+
+	code, filtered, errOut := run("--elevation-noise", "1000", samplePath())
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut)
+	}
+	if !strings.Contains(filtered, "Ascending elev.:   0 m") {
+		t.Errorf("a 1000 m threshold should filter all gain, got:\n%s", filtered)
+	}
+	if out == filtered {
+		t.Errorf("elevation-noise had no effect on the output")
+	}
+}
+
+func TestRunInvalidElevationNoise(t *testing.T) {
+	code, _, errOut := run("--elevation-noise", "-1", samplePath())
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2 (stderr: %s)", code, errOut)
+	}
+	if !strings.Contains(errOut, "invalid configuration") {
+		t.Errorf("expected configuration error, got: %s", errOut)
+	}
+}
+
 func TestRunInvalidPauseDuration(t *testing.T) {
 	// pause-duration of 0 fails config validation → usage exit code.
 	code, _, errOut := run("--pause-duration", "0s", samplePath())

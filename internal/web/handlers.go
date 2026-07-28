@@ -117,11 +117,12 @@ func (s *Server) renderIndex(w http.ResponseWriter, status int, errMsg string) {
 		mv = mapView{}
 	}
 	data := map[string]any{
-		"MaxUploadMB":   s.cfg.MaxUploadBytes / (1 << 20),
-		"PauseSpeed":    s.cfg.StationarySpeedKmh,
-		"PauseDuration": s.cfg.MinPauseDuration.String(),
-		"Error":         errMsg,
-		"Map":           mv,
+		"MaxUploadMB":    s.cfg.MaxUploadBytes / (1 << 20),
+		"PauseSpeed":     s.cfg.StationarySpeedKmh,
+		"PauseDuration":  s.cfg.MinPauseDuration.String(),
+		"ElevationNoise": s.cfg.ElevationNoiseMeters,
+		"Error":          errMsg,
+		"Map":            mv,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
@@ -181,6 +182,14 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cfg.MinPauseDuration = d
+	}
+	if v := r.FormValue("elevation_noise"); v != "" {
+		f, perr := strconv.ParseFloat(v, 64)
+		if perr != nil {
+			s.renderError(w, http.StatusBadRequest, "Elevation noise must be a number in meters.")
+			return
+		}
+		cfg.ElevationNoiseMeters = f
 	}
 	if verr := cfg.Validate(); verr != nil {
 		s.renderError(w, http.StatusBadRequest, "Invalid settings: "+verr.Error())
