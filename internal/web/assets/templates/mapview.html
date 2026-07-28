@@ -1,0 +1,21 @@
+{{define "mapview"}}
+{{if .Show}}
+<div class="box gpx-map-box">
+  <div class="gpx-map-wrapper">
+    <div id="gpx-map" class="gpx-map" role="application"
+         aria-label="{{if .HasRoute}}Map of the recorded activity{{else}}Interactive map. Drop a GPX file here to analyse it.{{end}}"></div>
+    <p id="gpx-drop-message" class="gpx-drop-message" role="status" aria-live="polite" hidden></p>
+  </div>
+
+  <noscript>
+    <div class="notification is-warning is-light">
+      The interactive map needs JavaScript. Every statistic, chart and split on
+      this page is rendered by the server and remains fully available without it.
+    </div>
+  </noscript>
+
+  <script type="application/json" id="gpx-map-config">{{.ConfigJSON}}</script>
+  {{if .HasRoute}}<script type="application/json" id="gpx-route">{{.RouteJSON}}</script>{{end}}
+</div>
+{{end}}
+{{end}}
