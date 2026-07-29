@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +10,28 @@ import (
 	"github.com/sgaunet/gpx-stats/internal/cli"
 	"github.com/sgaunet/gpx-stats/internal/stats"
 )
+
+// hasRow reports whether out contains a row with this label, value and unit,
+// whatever the column widths currently are.
+//
+// Assertions used to spell the padding out by hand, which meant adding one label
+// rewrote the expectations of twenty unrelated lines. This asserts what the
+// layout actually promises — one line, label then value then optional unit — and
+// the trailing anchor is what proves nothing else was appended to the row.
+func hasRow(out, label, value, unit string) bool {
+	pat := `(?m)^ *` + regexp.QuoteMeta(label) + ` {2,}` + regexp.QuoteMeta(value)
+	if unit != "" {
+		pat += ` {2,}` + regexp.QuoteMeta(unit)
+	}
+	return regexp.MustCompile(pat + `$`).MatchString(out)
+}
+
+// hasLabel reports whether out carries a row for this label at all, which is
+// what the "must not appear" assertions actually mean. A bare
+// strings.Contains(out, "Type") would match any line merely mentioning the word.
+func hasLabel(out, label string) bool {
+	return regexp.MustCompile(`(?m)^ *` + regexp.QuoteMeta(label) + ` {2,}`).MatchString(out)
+}
 
 func TestWriteTextFull(t *testing.T) {
 	r := stats.Result{
@@ -30,33 +53,43 @@ func TestWriteTextFull(t *testing.T) {
 	var buf bytes.Buffer
 	cli.WriteText(&buf, r)
 	out := buf.String()
-	for _, want := range []string{"Total distance:", "5.50 km", "120 m", "Moving time:", "Kilometer splits:"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("output missing %q\n%s", want, out)
+	for _, want := range []struct{ label, value, unit string }{
+		{"Total distance", "5.50", "km"},
+		{"Ascending elev.", "120", "m"},
+		{"Moving time", "1h50m00s", ""},
+	} {
+		if !hasRow(out, want.label, want.value, want.unit) {
+			t.Errorf("output missing row %q %q %q\n%s", want.label, want.value, want.unit, out)
 		}
 	}
+	if !strings.Contains(out, "Kilometer splits") {
+		t.Errorf("output missing the splits section\n%s", out)
+	}
 }
+
+// noElevation is the canonical unavailable wording from contracts/ui-labels.md.
+const noElevation = "unavailable (no elevation data)"
 
 func TestWriteTextUnavailable(t *testing.T) {
 	r := stats.Result{TotalDistanceKm: 1.0, HasElevation: false, HasTimes: false, PointCount: 3}
 	var buf bytes.Buffer
 	cli.WriteText(&buf, r)
 	out := buf.String()
-	if !strings.Contains(out, "Ascending elev.:   unavailable") {
+	if !hasRow(out, "Ascending elev.", noElevation, "") {
 		t.Errorf("expected elevation unavailable notice:\n%s", out)
 	}
-	if !strings.Contains(out, "Time-based stats:  unavailable") {
+	if !hasRow(out, "Time-based stats", "unavailable (no timestamps)", "") {
 		t.Errorf("expected time unavailable notice:\n%s", out)
 	}
 	// Must not fabricate a zero moving time when times are absent.
-	if strings.Contains(out, "Moving time:") {
+	if hasLabel(out, "Moving time") {
 		t.Errorf("should not print time metrics when unavailable:\n%s", out)
 	}
 	// FR-010: no elevation means no effort figure, and never a misleading 0.00.
-	if !strings.Contains(out, "Descending elev.:  unavailable") {
+	if !hasRow(out, "Descending elev.", noElevation, "") {
 		t.Errorf("expected descent unavailable notice:\n%s", out)
 	}
-	if !strings.Contains(out, "Effort km:         unavailable") {
+	if !hasRow(out, "Effort km", noElevation, "") {
 		t.Errorf("expected effort unavailable notice:\n%s", out)
 	}
 	if strings.Contains(out, "0.00") {
@@ -85,17 +118,21 @@ func TestWriteTextEffort(t *testing.T) {
 	cli.WriteText(&buf, effortResult())
 	out := buf.String()
 
+	for _, want := range []struct{ label, value, unit string }{
+		{"Descending elev.", "300", "m"},
+		{"Effort km (climb)", "15.00", ""},
+		{"Effort km (climb + descent)", "16.00", ""},
+	} {
+		if !hasRow(out, want.label, want.value, want.unit) {
+			t.Errorf("output missing row %q %q %q\n%s", want.label, want.value, want.unit, out)
+		}
+	}
 	for _, want := range []string{
-		"Descending elev.:  300 m",
-		"Effort km (climb):",
-		"15.00",
 		"100 m ascent = 1 km",
-		"Effort km (climb + descent):",
-		"16.00",
 		"100 m ascent = 1 km, 300 m descent = 1 km",
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("output missing %q\n%s", want, out)
+			t.Errorf("output missing legend %q\n%s", want, out)
 		}
 	}
 }
@@ -111,18 +148,20 @@ func TestWriteTextEffortWithoutTimes(t *testing.T) {
 	cli.WriteText(&buf, r)
 	out := buf.String()
 
-	if !strings.Contains(out, "Time-based stats:  unavailable") {
+	if !hasRow(out, "Time-based stats", "unavailable (no timestamps)", "") {
 		t.Fatalf("fixture should have no time metrics:\n%s", out)
 	}
-	for _, want := range []string{
-		"Descending elev.:  300 m",
-		"Effort km (climb):",
-		"Effort km (climb + descent):",
-		"100 m ascent = 1 km, 300 m descent = 1 km",
+	for _, want := range []struct{ label, value, unit string }{
+		{"Descending elev.", "300", "m"},
+		{"Effort km (climb)", "15.00", ""},
+		{"Effort km (climb + descent)", "16.00", ""},
 	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("effort must be reported without timestamps, missing %q\n%s", want, out)
+		if !hasRow(out, want.label, want.value, want.unit) {
+			t.Errorf("effort must be reported without timestamps, missing %q\n%s", want.label, out)
 		}
+	}
+	if !strings.Contains(out, "100 m ascent = 1 km, 300 m descent = 1 km") {
+		t.Errorf("effort legend must survive without timestamps\n%s", out)
 	}
 	// The rates do depend on timestamps, so they must be absent rather than
 	// rendered as a zero the reader would take for a measurement.
@@ -156,30 +195,30 @@ func TestWriteTextEffortRates(t *testing.T) {
 	cli.WriteText(&buf, effortRateResult())
 	out := buf.String()
 
-	for _, want := range []string{
-		"Effort km/h (climb):",
-		"12.50 km/h",
-		"Moving effort km/h (climb):",
-		"13.20 km/h",
-		"Effort km/h (climb + descent):",
-		"13.33 km/h",
-		"Moving effort km/h (climb + descent):",
-		"14.10 km/h",
+	for _, want := range []struct{ label, value string }{
+		{"Effort km/h (climb)", "12.50"},
+		{"Moving effort km/h (climb)", "13.20"},
+		{"Effort km/h (climb + descent)", "13.33"},
+		{"Moving effort km/h (climb + descent)", "14.10"},
 	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("output missing %q\n%s", want, out)
+		if !hasRow(out, want.label, want.value, "km/h") {
+			t.Errorf("output missing rate row %q %q\n%s", want.label, want.value, out)
 		}
 	}
 
 	// Ordering: total, its two rates, then the legend that explains all three.
+	// The "\n" on the climb legend is what stops it matching the longer
+	// climb+descent legend, which starts with the same text. It holds only
+	// because the test writer is a buffer and therefore unstyled; with styling
+	// on, a reset would sit between the text and the newline.
 	order := []string{
-		"Effort km (climb):",
-		"Effort km/h (climb):",
-		"Moving effort km/h (climb):",
+		"Effort km (climb)",
+		"Effort km/h (climb)",
+		"Moving effort km/h (climb)",
 		"100 m ascent = 1 km\n",
-		"Effort km (climb + descent):",
-		"Effort km/h (climb + descent):",
-		"Moving effort km/h (climb + descent):",
+		"Effort km (climb + descent)",
+		"Effort km/h (climb + descent)",
+		"Moving effort km/h (climb + descent)",
 		"100 m ascent = 1 km, 300 m descent = 1 km",
 	}
 	prev := -1

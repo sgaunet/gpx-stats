@@ -23,7 +23,7 @@ func TestRunStatsText(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut)
 	}
-	if !strings.Contains(out, "Total distance:") {
+	if !hasLabel(out, "Total distance") {
 		t.Errorf("expected stats text, got:\n%s", out)
 	}
 }
@@ -71,7 +71,7 @@ func TestRunPauseFlagsParsed(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut)
 	}
-	if !strings.Contains(out, "Pause time:") {
+	if !hasLabel(out, "Pause time") {
 		t.Errorf("expected pause stats, got:\n%s", out)
 	}
 }
@@ -84,7 +84,7 @@ func TestRunElevationNoiseFlagParsed(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut)
 	}
-	if !strings.Contains(out, "Ascending elev.:") {
+	if !hasLabel(out, "Ascending elev.") {
 		t.Fatalf("expected elevation stats, got:\n%s", out)
 	}
 
@@ -92,7 +92,7 @@ func TestRunElevationNoiseFlagParsed(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut)
 	}
-	if !strings.Contains(filtered, "Ascending elev.:   0 m") {
+	if !hasRow(filtered, "Ascending elev.", "0", "m") {
 		t.Errorf("a 1000 m threshold should filter all gain, got:\n%s", filtered)
 	}
 	if out == filtered {
