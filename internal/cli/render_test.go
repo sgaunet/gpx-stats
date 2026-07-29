@@ -124,4 +124,75 @@ func TestWriteTextEffortWithoutTimes(t *testing.T) {
 			t.Errorf("effort must be reported without timestamps, missing %q\n%s", want, out)
 		}
 	}
+	// The rates do depend on timestamps, so they must be absent rather than
+	// rendered as a zero the reader would take for a measurement.
+	for _, unwanted := range []string{"Effort km/h", "Moving effort km/h"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("effort rate %q must not appear without timestamps\n%s", unwanted, out)
+		}
+	}
+}
+
+// effortRateResult adds timestamps to the reference route so all four rates are
+// available. The values are distinct from the totals and from each other, so a
+// label wired to the wrong field fails rather than coincidentally matching.
+func effortRateResult() stats.Result {
+	r := effortResult()
+	r.HasTimes = true
+	r.TotalTime = time.Hour
+	r.MovingTime = 45 * time.Minute
+	r.EffortSpeedKmhClimb = 12.5
+	r.EffortMovingSpeedKmhClimb = 13.2
+	r.EffortSpeedKmhClimbDescent = 13.33
+	r.EffortMovingSpeedKmhClimbDescent = 14.1
+	return r
+}
+
+// TestWriteTextEffortRates pins the canonical rate labels from
+// contracts/ui-labels.md and their placement: each convention's rates sit
+// between its total and its legend, so one legend covers all three figures.
+func TestWriteTextEffortRates(t *testing.T) {
+	var buf bytes.Buffer
+	cli.WriteText(&buf, effortRateResult())
+	out := buf.String()
+
+	for _, want := range []string{
+		"Effort km/h (climb):",
+		"12.50 km/h",
+		"Moving effort km/h (climb):",
+		"13.20 km/h",
+		"Effort km/h (climb + descent):",
+		"13.33 km/h",
+		"Moving effort km/h (climb + descent):",
+		"14.10 km/h",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q\n%s", want, out)
+		}
+	}
+
+	// Ordering: total, its two rates, then the legend that explains all three.
+	order := []string{
+		"Effort km (climb):",
+		"Effort km/h (climb):",
+		"Moving effort km/h (climb):",
+		"100 m ascent = 1 km\n",
+		"Effort km (climb + descent):",
+		"Effort km/h (climb + descent):",
+		"Moving effort km/h (climb + descent):",
+		"100 m ascent = 1 km, 300 m descent = 1 km",
+	}
+	prev := -1
+	for _, s := range order {
+		at := strings.Index(out, s)
+		if at <= prev {
+			t.Fatalf("%q is out of order (at %d, previous at %d)\n%s", s, at, prev, out)
+		}
+		prev = at
+	}
+
+	// Each legend is stated exactly once, however many figures it covers.
+	if n := strings.Count(out, "100 m ascent = 1 km, 300 m descent = 1 km"); n != 1 {
+		t.Errorf("climb+descent legend appears %d times, want 1\n%s", n, out)
+	}
 }

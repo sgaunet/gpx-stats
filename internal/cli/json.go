@@ -33,6 +33,13 @@ type jsonResult struct {
 	EffortKmClimb        *float64     `json:"effortKmClimb"`
 	EffortKmClimbDescent *float64     `json:"effortKmClimbDescent"`
 
+	// The four effort rates are null unless hasElevation AND hasTimes are both
+	// true: they divide an elevation-derived figure by a duration.
+	EffortSpeedKmhClimb              *float64 `json:"effortSpeedKmhClimb"`
+	EffortSpeedKmhClimbDescent       *float64 `json:"effortSpeedKmhClimbDescent"`
+	EffortMovingSpeedKmhClimb        *float64 `json:"effortMovingSpeedKmhClimb"`
+	EffortMovingSpeedKmhClimbDescent *float64 `json:"effortMovingSpeedKmhClimbDescent"`
+
 	HasElevation      bool        `json:"hasElevation"`
 	TotalTimeSeconds  *float64    `json:"totalTimeSeconds"`
 	MovingTimeSeconds *float64    `json:"movingTimeSeconds"`
@@ -124,6 +131,16 @@ func toJSON(r stats.Result) jsonResult {
 		j.PauseCount = &pc
 		j.AvgSpeedKmh = &as
 		j.AvgMovingSpeedKmh = &ams
+		if r.HasElevation {
+			esc := round3(r.EffortSpeedKmhClimb)
+			escd := round3(r.EffortSpeedKmhClimbDescent)
+			emsc := round3(r.EffortMovingSpeedKmhClimb)
+			emscd := round3(r.EffortMovingSpeedKmhClimbDescent)
+			j.EffortSpeedKmhClimb = &esc
+			j.EffortSpeedKmhClimbDescent = &escd
+			j.EffortMovingSpeedKmhClimb = &emsc
+			j.EffortMovingSpeedKmhClimbDescent = &emscd
+		}
 		for _, s := range r.Splits {
 			j.Splits = append(j.Splits, jsonSplit{
 				Index:           s.Index,

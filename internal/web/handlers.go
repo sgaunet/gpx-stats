@@ -240,27 +240,33 @@ type activityView struct {
 }
 
 type resultView struct {
-	Activity               activityView
-	SegmentCount           int
-	TotalDistanceKm        string
-	AscendingElevationM    string
-	DescendingElevationM   string
-	EffortKmClimb          string
-	EffortKmClimbDescent   string
-	HasElevation           bool
-	TotalTime              string
-	MovingTime             string
-	PauseTime              string
-	PauseCount             int
-	HasTimes               bool
-	AvgSpeedKmh            string
-	AvgMovingSpeedKmh      string
-	PointCount             int
-	Splits                 []splitView
-	ElevationDistanceChart template.HTML
-	ElevationTimeChart     template.HTML
-	SpeedChart             template.HTML
-	Map                    mapView
+	Activity             activityView
+	SegmentCount         int
+	TotalDistanceKm      string
+	AscendingElevationM  string
+	DescendingElevationM string
+	EffortKmClimb        string
+	EffortKmClimbDescent string
+	HasElevation         bool
+	TotalTime            string
+	MovingTime           string
+	PauseTime            string
+	PauseCount           int
+	HasTimes             bool
+	AvgSpeedKmh          string
+	AvgMovingSpeedKmh    string
+	// The four effort rates stay empty unless HasElevation and HasTimes are
+	// both true; the template renders n/a in that case rather than 0.00.
+	EffortSpeedKmhClimb              string
+	EffortSpeedKmhClimbDescent       string
+	EffortMovingSpeedKmhClimb        string
+	EffortMovingSpeedKmhClimbDescent string
+	PointCount                       int
+	Splits                           []splitView
+	ElevationDistanceChart           template.HTML
+	ElevationTimeChart               template.HTML
+	SpeedChart                       template.HTML
+	Map                              mapView
 }
 
 // buildActivityView formats the identity for display. It reads only the
@@ -314,6 +320,15 @@ func (s *Server) buildView(track gpx.Track, res stats.Result) (resultView, error
 				SpeedKmh:   fmt.Sprintf("%.2f", sp.SpeedKmh),
 			})
 		}
+	}
+	// The effort rates are the one pair of gates that must both hold. They are
+	// read straight off the Result — the division already happened in
+	// stats.Compute, so this page and the terminal cannot disagree.
+	if res.HasElevation && res.HasTimes {
+		v.EffortSpeedKmhClimb = fmt.Sprintf("%.2f", res.EffortSpeedKmhClimb)
+		v.EffortSpeedKmhClimbDescent = fmt.Sprintf("%.2f", res.EffortSpeedKmhClimbDescent)
+		v.EffortMovingSpeedKmhClimb = fmt.Sprintf("%.2f", res.EffortMovingSpeedKmhClimb)
+		v.EffortMovingSpeedKmhClimbDescent = fmt.Sprintf("%.2f", res.EffortMovingSpeedKmhClimbDescent)
 	}
 
 	// The route map. A track with no usable coordinates yields Show == false,

@@ -78,6 +78,8 @@
           <div class="box has-text-centered">
             <p class="heading">Effort km (climb)</p>
             <p class="title is-4">{{if .HasElevation}}{{.EffortKmClimb}}{{else}}n/a{{end}}</p>
+            <p class="is-size-7">Effort km/h (climb): {{if and .HasElevation .HasTimes}}{{.EffortSpeedKmhClimb}} km/h{{else}}n/a{{end}}</p>
+            <p class="is-size-7">Moving effort km/h (climb): {{if and .HasElevation .HasTimes}}{{.EffortMovingSpeedKmhClimb}} km/h{{else}}n/a{{end}}</p>
             <p class="is-size-7 has-text-grey">100 m ascent = 1 km</p>
           </div>
         </div>
@@ -85,6 +87,8 @@
           <div class="box has-text-centered">
             <p class="heading">Effort km (climb + descent)</p>
             <p class="title is-4">{{if .HasElevation}}{{.EffortKmClimbDescent}}{{else}}n/a{{end}}</p>
+            <p class="is-size-7">Effort km/h (climb + descent): {{if and .HasElevation .HasTimes}}{{.EffortSpeedKmhClimbDescent}} km/h{{else}}n/a{{end}}</p>
+            <p class="is-size-7">Moving effort km/h (climb + descent): {{if and .HasElevation .HasTimes}}{{.EffortMovingSpeedKmhClimbDescent}} km/h{{else}}n/a{{end}}</p>
             <p class="is-size-7 has-text-grey">100 m ascent = 1 km, 300 m descent = 1 km</p>
           </div>
         </div>

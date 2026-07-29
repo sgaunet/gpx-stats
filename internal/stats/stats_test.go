@@ -180,6 +180,91 @@ func TestComputeNoElevationLeavesEffortZero(t *testing.T) {
 	}
 }
 
+// TestComputeEffortRates pins the four effort-per-hour figures against the
+// numbers they are derived from, so a reader can reproduce them from what is on
+// screen — the same guarantee the effort totals already carry.
+func TestComputeEffortRates(t *testing.T) {
+	res := stats.Compute(fullTrack(), pauseAwareConfig())
+
+	if !res.HasElevation || !res.HasTimes {
+		t.Fatalf("fixture should carry both elevation and timestamps")
+	}
+	if res.MovingTime >= res.TotalTime {
+		t.Fatalf("fixture should contain a pause, got moving %s of total %s",
+			res.MovingTime, res.TotalTime)
+	}
+
+	for _, tt := range []struct {
+		name string
+		got  float64
+		want float64
+	}{
+		{"EffortSpeedKmhClimb", res.EffortSpeedKmhClimb, res.EffortKmClimb / res.TotalTime.Hours()},
+		{"EffortSpeedKmhClimbDescent", res.EffortSpeedKmhClimbDescent,
+			res.EffortKmClimbDescent / res.TotalTime.Hours()},
+		{"EffortMovingSpeedKmhClimb", res.EffortMovingSpeedKmhClimb,
+			res.EffortKmClimb / res.MovingTime.Hours()},
+		{"EffortMovingSpeedKmhClimbDescent", res.EffortMovingSpeedKmhClimbDescent,
+			res.EffortKmClimbDescent / res.MovingTime.Hours()},
+	} {
+		if math.Abs(tt.got-tt.want) > 1e-9 {
+			t.Errorf("%s = %g, want %g", tt.name, tt.got, tt.want)
+		}
+	}
+
+	// A pause shortens the divisor, so the moving rate is always the faster of
+	// the pair — the same relation AvgMovingSpeedKmh has to AvgSpeedKmh.
+	if res.EffortMovingSpeedKmhClimb <= res.EffortSpeedKmhClimb {
+		t.Errorf("moving rate %g should exceed elapsed rate %g when the track pauses",
+			res.EffortMovingSpeedKmhClimb, res.EffortSpeedKmhClimb)
+	}
+	// Every effort rate exceeds the plain speed it corresponds to: effort
+	// kilometers are never fewer than the distance walked.
+	if res.EffortSpeedKmhClimb <= res.AvgSpeedKmh {
+		t.Errorf("effort rate %g should exceed plain avg speed %g",
+			res.EffortSpeedKmhClimb, res.AvgSpeedKmh)
+	}
+}
+
+// TestComputeEffortRatesNeedBothGates: the rates are the only metrics requiring
+// elevation AND timestamps, so either one missing must leave all four at zero
+// for callers to render as unavailable rather than as a real zero.
+func TestComputeEffortRatesNeedBothGates(t *testing.T) {
+	elevationNoTimes := gpx.Track{
+		HasElevation: true, HasTimes: false,
+		Points: []gpx.TrackPoint{
+			{Lat: 45, Lon: 6.0000, Ele: 100, HasEle: true},
+			{Lat: 45, Lon: 6.0010, Ele: 110, HasEle: true},
+		},
+	}
+	base := computeBase()
+	timesNoElevation := gpx.Track{
+		HasElevation: false, HasTimes: true,
+		Points: []gpx.TrackPoint{
+			{Lat: 45, Lon: 6.0000, HasTime: true, Time: base},
+			{Lat: 45, Lon: 6.0010, HasTime: true, Time: base.Add(time.Minute)},
+		},
+	}
+
+	for _, tt := range []struct {
+		name  string
+		track gpx.Track
+	}{
+		{"elevation but no timestamps", elevationNoTimes},
+		{"timestamps but no elevation", timesNoElevation},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			res := stats.Compute(tt.track, config.Default())
+			if res.EffortSpeedKmhClimb != 0 || res.EffortSpeedKmhClimbDescent != 0 ||
+				res.EffortMovingSpeedKmhClimb != 0 || res.EffortMovingSpeedKmhClimbDescent != 0 {
+				t.Errorf("effort rates must stay zero, got %g, %g, %g, %g",
+					res.EffortSpeedKmhClimb, res.EffortSpeedKmhClimbDescent,
+					res.EffortMovingSpeedKmhClimb, res.EffortMovingSpeedKmhClimbDescent)
+			}
+		})
+	}
+}
+
 func TestComputeEmpty(t *testing.T) {
 	res := stats.Compute(gpx.Track{}, config.Default())
 	if res.PointCount != 0 || res.TotalDistanceKm != 0 {

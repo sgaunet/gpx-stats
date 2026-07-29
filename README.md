@@ -81,18 +81,44 @@ already uses:
 For a 10 km route with 500 m of ascent and 300 m of descent, they read **15.00**
 and **16.00**.
 
-Both figures appear in the CLI, in `--json` and on the web results page, each
-above its own legend — here as an excerpt of `gpx-stats testdata/sample.gpx`:
+### Effort kilometers per hour
+
+Each convention is also reported as a rate, so two hilly outings are comparable
+without dividing by hand. Plain `Avg speed` understates a climb-heavy activity
+for exactly the reason effort kilometers exist; the effort rate does not.
+
+Both time bases are shown, mirroring the existing `Avg speed` / `Avg moving
+speed` pair:
+
+| Figure | Divided by |
+|--------|------------|
+| Effort km/h (…) | elapsed time — pauses included |
+| Moving effort km/h (…) | moving time — pauses excluded |
+
+Rates need timestamps as well as elevation. A track carrying elevation but no
+`<time>` still reports its effort kilometers; only the rates are unavailable.
+
+Every figure appears in the CLI, in `--json` and on the web results page. The
+block is grouped by convention, so one legend covers a convention's total and
+both of its rates — here as an excerpt of `gpx-stats testdata/sample.gpx`:
 
 ```
 Total distance:    0.16 km
 Ascending elev.:   25 m
 Descending elev.:  0 m
-Effort km (climb):            0.41
+Effort km (climb):                    0.41
+Effort km/h (climb):                  12.22 km/h
+Moving effort km/h (climb):           12.22 km/h
   100 m ascent = 1 km
-Effort km (climb + descent):  0.41
+Effort km (climb + descent):          0.41
+Effort km/h (climb + descent):        12.22 km/h
+Moving effort km/h (climb + descent): 12.22 km/h
   100 m ascent = 1 km, 300 m descent = 1 km
 ```
+
+That sample has no pause, so its two time bases coincide. On a track with a real
+stop they separate: `testdata/two_segments.gpx` spends 10 of its 10m40s standing
+still, and reads 1.83 km/h elapsed against 29.32 km/h moving.
 
 ## Segments
 

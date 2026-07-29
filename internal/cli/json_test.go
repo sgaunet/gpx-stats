@@ -88,6 +88,8 @@ func TestWriteJSONUnavailableAreNull(t *testing.T) {
 	for _, k := range []string{
 		"ascendingElevationM", "descendingElevationM",
 		"effortKmClimb", "effortKmClimbDescent",
+		"effortSpeedKmhClimb", "effortSpeedKmhClimbDescent",
+		"effortMovingSpeedKmhClimb", "effortMovingSpeedKmhClimbDescent",
 		"totalTimeSeconds", "avgSpeedKmh", "pauseCount",
 	} {
 		if v, ok := m[k]; !ok || v != nil {
@@ -124,6 +126,58 @@ func TestWriteJSONEffort(t *testing.T) {
 		"descendingElevationM": 300,
 		"effortKmClimb":        15,
 		"effortKmClimbDescent": 16,
+	} {
+		if got := floatField(t, m, key); got != want {
+			t.Errorf("%s = %v, want %v", key, got, want)
+		}
+	}
+
+	// The fixture carries no timestamps, so the rates are unavailable even
+	// though the elevation half of their gate is satisfied.
+	for _, k := range []string{
+		"effortSpeedKmhClimb", "effortSpeedKmhClimbDescent",
+		"effortMovingSpeedKmhClimb", "effortMovingSpeedKmhClimbDescent",
+	} {
+		if v, ok := m[k]; !ok || v != nil {
+			t.Errorf("%q should be null without timestamps, got %v (present=%v)", k, v, ok)
+		}
+	}
+}
+
+// TestWriteJSONEffortRates walks the reference route over a known elapsed and
+// moving time, so each rate key must carry its own distinct value.
+func TestWriteJSONEffortRates(t *testing.T) {
+	r := stats.Result{
+		TotalDistanceKm:      10,
+		AscendingElevationM:  500,
+		DescendingElevationM: 300,
+		EffortKmClimb:        15,
+		EffortKmClimbDescent: 16,
+		HasElevation:         true,
+		HasTimes:             true,
+		// One hour elapsed, 30 minutes of it moving.
+		TotalTime:                        time.Hour,
+		MovingTime:                       30 * time.Minute,
+		EffortSpeedKmhClimb:              15,
+		EffortSpeedKmhClimbDescent:       16,
+		EffortMovingSpeedKmhClimb:        30,
+		EffortMovingSpeedKmhClimbDescent: 32,
+		PointCount:                       8,
+	}
+	var buf bytes.Buffer
+	if err := cli.WriteJSON(&buf, r); err != nil {
+		t.Fatalf("WriteJSON: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+
+	for key, want := range map[string]float64{
+		"effortSpeedKmhClimb":              15,
+		"effortSpeedKmhClimbDescent":       16,
+		"effortMovingSpeedKmhClimb":        30,
+		"effortMovingSpeedKmhClimbDescent": 32,
 	} {
 		if got := floatField(t, m, key); got != want {
 			t.Errorf("%s = %v, want %v", key, got, want)

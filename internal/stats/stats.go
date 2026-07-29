@@ -59,6 +59,15 @@ func Compute(track gpx.Track, cfg config.Config) Result {
 		if res.MovingTime > 0 {
 			res.AvgMovingSpeedKmh = res.TotalDistanceKm / res.MovingTime.Hours()
 		}
+		// The effort rates need elevation as well as time. The effort totals
+		// they divide are already filled in by the elevation block above, so
+		// this is the one place the division happens: transports only read it.
+		if res.HasElevation {
+			res.EffortSpeedKmhClimb = effortSpeedKmh(res.EffortKmClimb, res.TotalTime)
+			res.EffortSpeedKmhClimbDescent = effortSpeedKmh(res.EffortKmClimbDescent, res.TotalTime)
+			res.EffortMovingSpeedKmhClimb = effortSpeedKmh(res.EffortKmClimb, res.MovingTime)
+			res.EffortMovingSpeedKmhClimbDescent = effortSpeedKmh(res.EffortKmClimbDescent, res.MovingTime)
+		}
 		res.Splits = kilometerSplits(pts)
 	}
 	return res

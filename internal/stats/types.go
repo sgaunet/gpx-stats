@@ -57,9 +57,20 @@ type Result struct {
 	HasTimes             bool
 	AvgSpeedKmh          float64
 	AvgMovingSpeedKmh    float64
-	Splits               []KmSplit
-	Pauses               []Pause
-	PointCount           int
+
+	// The four effort rates are each convention's effort kilometers per hour,
+	// over elapsed time (EffortSpeedKmh*) and over moving time
+	// (EffortMovingSpeedKmh*), mirroring AvgSpeedKmh / AvgMovingSpeedKmh. They
+	// are the only metrics here gated by HasElevation *and* HasTimes: without
+	// either they stay zero and callers must render them as unavailable.
+	EffortSpeedKmhClimb              float64
+	EffortSpeedKmhClimbDescent       float64
+	EffortMovingSpeedKmhClimb        float64
+	EffortMovingSpeedKmhClimbDescent float64
+
+	Splits     []KmSplit
+	Pauses     []Pause
+	PointCount int
 
 	// SegmentCount is the number of recorded <trkseg> runs the activity is made
 	// of. More than one means recording was interrupted, so the distance
