@@ -51,11 +51,12 @@ type mapView struct {
 	// <script type="application/json"> blocks.
 	//
 	// They are template.JS, which bypasses contextual escaping, so the safety
-	// argument matters: RouteJSON is json.Marshal over a []float64 whose values
-	// the GPX parser has already bounded, making it digits, '.', '-', ',' and
-	// brackets only. No such string can contain "</script>". A test enforces
-	// that invariant rather than trusting this comment. ConfigJSON is built
-	// from the fixed layer table plus numbers — no user input reaches it.
+	// argument matters: RouteJSON is json.Marshal over nested slices of float64
+	// whose values the GPX parser has already bounded, making it digits, '.',
+	// '-', ',' and brackets only. The nesting adds brackets, never new kinds of
+	// character, so no such string can contain "</script>". A test enforces that
+	// invariant rather than trusting this comment. ConfigJSON is built from the
+	// fixed layer table plus numbers — no user input reaches it.
 	ConfigJSON template.JS
 	RouteJSON  template.JS
 }
@@ -93,7 +94,7 @@ func buildMapView(route geo.Route, dropzone bool) (mapView, error) {
 	}
 
 	if cfg.HasRoute {
-		coordsJSON, cerr := json.Marshal(route.Coords)
+		coordsJSON, cerr := json.Marshal(route.Segments)
 		if cerr != nil {
 			return mapView{}, fmt.Errorf("marshalling route coordinates: %w", cerr)
 		}
@@ -224,7 +225,23 @@ type splitView struct {
 	SpeedKmh   string
 }
 
+// activityView is the file's identity, pre-formatted for the template. Every
+// field is a plain string rendered through normal contextual escaping — these
+// are the only user-controlled strings on the page, and must never become
+// template.HTML or reach the map's template.JS payloads.
+type activityView struct {
+	Show     bool
+	Name     string
+	Type     string
+	Creator  string
+	Start    string
+	End      string
+	FileTime string
+}
+
 type resultView struct {
+	Activity               activityView
+	SegmentCount           int
 	TotalDistanceKm        string
 	AscendingElevationM    string
 	DescendingElevationM   string
@@ -246,8 +263,31 @@ type resultView struct {
 	Map                    mapView
 }
 
+// buildActivityView formats the identity for display. It reads only the
+// computed Result — never the parsed track, even though buildView holds one —
+// so the web page and the terminal cannot drift apart.
+func buildActivityView(a stats.Activity) activityView {
+	v := activityView{
+		Name:    a.Name,
+		Type:    a.Type,
+		Creator: a.Creator,
+	}
+	if a.HasStartEnd {
+		v.Start = a.Start.Format(time.RFC3339)
+		v.End = a.End.Format(time.RFC3339)
+	}
+	if a.HasMetadataTime {
+		v.FileTime = a.MetadataTime.Format(time.RFC3339)
+	}
+	// Nothing to say means no block at all, rather than a panel of blanks.
+	v.Show = v.Name != "" || v.Type != "" || v.Creator != "" || v.Start != "" || v.FileTime != ""
+	return v
+}
+
 func (s *Server) buildView(track gpx.Track, res stats.Result) (resultView, error) {
 	v := resultView{
+		Activity:        buildActivityView(res.Activity),
+		SegmentCount:    res.SegmentCount,
 		TotalDistanceKm: fmt.Sprintf("%.2f", res.TotalDistanceKm),
 		HasElevation:    res.HasElevation,
 		HasTimes:        res.HasTimes,

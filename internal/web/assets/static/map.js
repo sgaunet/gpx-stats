@@ -57,15 +57,6 @@
 
   // ----------------------------------------------------------------- route
 
-  /** Converts the flat [lat, lon, lat, lon, ...] payload into Leaflet pairs. */
-  function toLatLngs(flat) {
-    var pts = [];
-    for (var i = 0; i + 1 < flat.length; i += 2) {
-      pts.push([flat[i], flat[i + 1]]);
-    }
-    return pts;
-  }
-
   function endpointIcon(kind, label) {
     return L.divIcon({
       className: '',
@@ -85,20 +76,36 @@
   }
 
   function drawRoute(map, cfg) {
-    var flat = readJSON('gpx-route');
-    if (!flat || !flat.length) {
+    // One entry per recorded segment, each already a list of [lat, lon] pairs:
+    // exactly the multi-polyline shape L.polyline accepts, so there is nothing
+    // to convert here. Segments are drawn as separate lines on purpose — the
+    // ground between them was never travelled.
+    var segs = readJSON('gpx-route');
+    if (!segs || !segs.length) {
       return;
     }
-    var pts = toLatLngs(flat);
 
-    if (pts.length === 1) {
+    // Counted rather than flattened: concatenating a 500k-point track just to
+    // learn its length would allocate a second copy of the whole payload.
+    var count = 0;
+    for (var i = 0; i < segs.length; i++) {
+      count += segs[i].length;
+    }
+    if (!count) {
+      return;
+    }
+    var lastSeg = segs[segs.length - 1];
+    var first = segs[0][0];
+    var last = lastSeg[lastSeg.length - 1];
+
+    if (count === 1) {
       // A lone point: a marker, no line. Drawing a zero-length polyline would
       // render nothing at all.
-      L.marker(pts[0], { icon: endpointIcon('start', 'Start') }).addTo(map);
+      L.marker(first, { icon: endpointIcon('start', 'Start') }).addTo(map);
       return;
     }
 
-    L.polyline(pts, {
+    L.polyline(segs, {
       color: '#cc0f35',
       weight: 3,
       opacity: 0.85,
@@ -112,8 +119,10 @@
       smoothFactor: 0,
     }).addTo(map);
 
-    L.marker(pts[0], { icon: endpointIcon('start', 'Start') }).addTo(map);
-    L.marker(pts[pts.length - 1], { icon: endpointIcon('end', 'End') }).addTo(map);
+    // The activity's start and end, which are the first point of the first
+    // segment and the last point of the last one.
+    L.marker(first, { icon: endpointIcon('start', 'Start') }).addTo(map);
+    L.marker(last, { icon: endpointIcon('end', 'End') }).addTo(map);
   }
 
   function frame(map, cfg) {

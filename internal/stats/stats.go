@@ -15,9 +15,19 @@ import (
 // callers can render them as "unavailable".
 func Compute(track gpx.Track, cfg config.Config) Result {
 	pts := track.Points
-	res := Result{PointCount: len(pts)}
+	res := Result{PointCount: len(pts), Activity: activityOf(track)}
+	if len(pts) > 0 {
+		// Segment indices are dense and non-decreasing, so the last one names
+		// the count.
+		res.SegmentCount = pts[len(pts)-1].SegmentIndex + 1
+	}
 
 	for i := 1; i < len(pts); i++ {
+		// Nothing accrues across a segment boundary: recording was interrupted,
+		// so the straight line between these two points was never travelled.
+		if !gpx.SameSegment(pts[i-1], pts[i]) {
+			continue
+		}
 		res.TotalDistanceKm += haversineKm(pts[i-1].Lat, pts[i-1].Lon, pts[i].Lat, pts[i].Lon)
 	}
 
@@ -52,4 +62,37 @@ func Compute(track gpx.Track, cfg config.Config) Result {
 		res.Splits = kilometerSplits(pts)
 	}
 	return res
+}
+
+// activityOf copies the document's descriptive identity and derives the
+// activity's start and end from the first and last timestamped point.
+//
+// Start and End scan for timestamps rather than reading the endpoints
+// directly, so a track whose very first or last point lacks one still reports
+// when it happened. They are in document order, not sorted: a track with
+// out-of-order timestamps is malformed, and silently reordering it here would
+// disagree with every other statistic, all of which read the track as recorded.
+func activityOf(track gpx.Track) Activity {
+	a := Activity{
+		Creator:         track.Creator,
+		Name:            track.Name,
+		Type:            track.Type,
+		MetadataTime:    track.MetadataTime,
+		HasMetadataTime: track.HasMetadataTime,
+	}
+	pts := track.Points
+	for _, p := range pts {
+		if p.HasTime {
+			a.Start = p.Time
+			a.HasStartEnd = true
+			break
+		}
+	}
+	for i := len(pts) - 1; i >= 0; i-- {
+		if pts[i].HasTime {
+			a.End = pts[i].Time
+			break
+		}
+	}
+	return a
 }

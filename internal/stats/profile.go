@@ -53,7 +53,9 @@ func elevationSeries(track gpx.Track, byTime bool) (xs, ys []float64) {
 	start := pts[0].Time
 	var cumKm float64
 	for i, p := range pts {
-		if i > 0 {
+		// Skipping the gap keeps this axis identical to the reported total
+		// distance, so the chart and the statistic never disagree.
+		if i > 0 && gpx.SameSegment(pts[i-1], p) {
 			cumKm += haversineKm(pts[i-1].Lat, pts[i-1].Lon, p.Lat, p.Lon)
 		}
 		if !p.HasEle {

@@ -46,7 +46,14 @@ func detectPauses(points []gpx.TrackPoint, stationaryKmh float64, minDuration ti
 		if dt <= 0 {
 			continue
 		}
-		distKm := haversineKm(p0.Lat, p0.Lon, p1.Lat, p1.Lon)
+		// Across a segment boundary no distance was travelled that we know of,
+		// so the interval reads as stationary and becomes a pause once it is
+		// long enough. That is what keeps moving + pause == total: the gap has
+		// to land in one of the two, and it was certainly not movement.
+		var distKm float64
+		if gpx.SameSegment(p0, p1) {
+			distKm = haversineKm(p0.Lat, p0.Lon, p1.Lat, p1.Lon)
+		}
 		speedKmh := distKm / dt.Hours()
 		if speedKmh <= stationaryKmh {
 			if !inRun {

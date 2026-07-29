@@ -16,8 +16,17 @@ import (
 func WriteText(w io.Writer, r stats.Result) {
 	fmt.Fprintln(w, "GPX Statistics")
 	fmt.Fprintln(w, "==============")
+	writeActivity(w, r.Activity)
 	fmt.Fprintf(w, "Points:            %d\n", r.PointCount)
-	fmt.Fprintf(w, "Total distance:    %.2f km\n", r.TotalDistanceKm)
+	// The segment note only appears when it explains something. A reader
+	// comparing this figure against a tool that joins the segments would
+	// otherwise have no way to account for the difference.
+	if r.SegmentCount > 1 {
+		fmt.Fprintf(w, "Total distance:    %.2f km (%d segments; gaps between them are not counted)\n",
+			r.TotalDistanceKm, r.SegmentCount)
+	} else {
+		fmt.Fprintf(w, "Total distance:    %.2f km\n", r.TotalDistanceKm)
+	}
 
 	if r.HasElevation {
 		fmt.Fprintf(w, "Ascending elev.:   %.0f m\n", r.AscendingElevationM)
@@ -50,6 +59,39 @@ func WriteText(w io.Writer, r stats.Result) {
 			fmt.Fprintf(w, "  %2d   %6.2f     %-8s  %6.2f\n",
 				s.Index, s.DistanceKm, formatDuration(s.Duration), s.SpeedKmh)
 		}
+	}
+}
+
+// writeActivity renders whatever the file said about itself, one line per
+// field that is actually present.
+//
+// A file carrying none of it gets a single "unavailable" line rather than six:
+// the terminal is the human surface, and six identical negatives would push the
+// statistics down the screen to say nothing. The machine-readable output is
+// where every field is always present.
+func writeActivity(w io.Writer, a stats.Activity) {
+	if a.Name == "" && a.Type == "" && a.Creator == "" && !a.HasMetadataTime && !a.HasStartEnd {
+		fmt.Fprintln(w, "Activity:          unavailable (no identity metadata in the file)")
+		return
+	}
+	if a.Name != "" {
+		fmt.Fprintf(w, "Activity:          %s\n", a.Name)
+	}
+	if a.Type != "" {
+		fmt.Fprintf(w, "Type:              %s\n", a.Type)
+	}
+	if a.Creator != "" {
+		fmt.Fprintf(w, "Recorded by:       %s\n", a.Creator)
+	}
+	if a.HasStartEnd {
+		fmt.Fprintf(w, "Start:             %s\n", a.Start.Format(time.RFC3339))
+		fmt.Fprintf(w, "End:               %s\n", a.End.Format(time.RFC3339))
+	}
+	if a.HasMetadataTime {
+		// Labelled "File time" on purpose: it is when the document was written,
+		// which exporters routinely set to the moment you downloaded it. Calling
+		// it a date would misdate the activity.
+		fmt.Fprintf(w, "File time:         %s\n", a.MetadataTime.Format(time.RFC3339))
 	}
 }
 

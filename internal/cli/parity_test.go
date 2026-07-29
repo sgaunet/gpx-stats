@@ -24,8 +24,19 @@ import (
 // TestCLIWebParity verifies that the CLI (--json) and the web UI report the same
 // statistics for the same input (SC-005). Both derive from stats.Compute, so
 // this guards against a transport diverging from the shared engine.
+//
+// two_segments.gpx is included deliberately: segment awareness changes the
+// numbers, and a transport that recomputed anything itself would now disagree
+// on a whole new class of file.
 func TestCLIWebParity(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "sample.gpx")
+	for _, fixture := range []string{"sample.gpx", "two_segments.gpx"} {
+		t.Run(fixture, func(t *testing.T) { assertParity(t, fixture) })
+	}
+}
+
+func assertParity(t *testing.T, fixture string) {
+	t.Helper()
+	path := filepath.Join("..", "..", "testdata", fixture)
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
@@ -93,6 +104,15 @@ func TestCLIWebParity(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("web page missing effort value %q", want)
 		}
+	}
+
+	// Segment count and identity travel the same single-payload path as every
+	// number, so they must agree too.
+	if v := floatField(t, got, "segmentCount"); int(v) != want.SegmentCount {
+		t.Errorf("cli segmentCount %d != engine %d", int(v), want.SegmentCount)
+	}
+	if want.Activity.Name != "" && !strings.Contains(body, want.Activity.Name) {
+		t.Errorf("web page missing activity name %q", want.Activity.Name)
 	}
 }
 
