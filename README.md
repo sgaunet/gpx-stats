@@ -64,6 +64,24 @@ gpx-stats --elevation-noise 3 path/to/activity.gpx
 
 Errors are written to stderr with a non-zero exit code (1 runtime, 2 usage).
 
+### Terminal styling
+
+The text output is grouped into sections, and its labels and values are aligned
+in one column sized to whatever the file actually reports — a track with no
+elevation gets a narrower report, not a padded one.
+
+Section headings are shown in bold and units in dim **only when stdout is a
+terminal**. Redirect or pipe the output and it is plain text, so nothing has to
+strip escape sequences. Styling is bold and dim only: a hue that reads well on a
+dark background is often invisible on a light one. To turn it off on a terminal
+too, any of these works:
+
+```sh
+gpx-stats --no-color path/to/activity.gpx
+NO_COLOR=1 gpx-stats path/to/activity.gpx
+TERM=dumb gpx-stats path/to/activity.gpx
+```
+
 ## Effort kilometers
 
 A hilly route costs more than its flat distance suggests. *Effort kilometers*
@@ -103,17 +121,20 @@ block is grouped by convention, so one legend covers a convention's total and
 both of its rates — here as an excerpt of `gpx-stats testdata/sample.gpx`:
 
 ```
-Total distance:    0.16 km
-Ascending elev.:   25 m
-Descending elev.:  0 m
-Effort km (climb):                    0.41
-Effort km/h (climb):                  12.22 km/h
-Moving effort km/h (climb):           12.22 km/h
-  100 m ascent = 1 km
-Effort km (climb + descent):          0.41
-Effort km/h (climb + descent):        12.22 km/h
-Moving effort km/h (climb + descent): 12.22 km/h
-  100 m ascent = 1 km, 300 m descent = 1 km
+Distance & elevation
+  Total distance                         0.16  km
+  Ascending elev.                          25  m
+  Descending elev.                          0  m
+
+Effort kilometers
+  Effort km (climb)                      0.41
+  Effort km/h (climb)                   12.22  km/h
+  Moving effort km/h (climb)            12.22  km/h
+    100 m ascent = 1 km
+  Effort km (climb + descent)            0.41
+  Effort km/h (climb + descent)         12.22  km/h
+  Moving effort km/h (climb + descent)  12.22  km/h
+    100 m ascent = 1 km, 300 m descent = 1 km
 ```
 
 That sample has no pause, so its two time bases coincide. On a track with a real
@@ -142,11 +163,12 @@ device travelled ~7.8 km:
 | Moving time | **40s** | 10m40s |
 | Effort km (climb) | **0.33** | 10.03 |
 
-Whenever a file holds more than one segment, the count is shown next to the distance so the
+Whenever a file holds more than one segment, the count is noted under the distance so the
 difference is never a mystery:
 
 ```
-Total distance:    0.13 km (2 segments; gaps between them are not counted)
+  Total distance                          0.13  km
+    2 segments; gaps between them are not counted
 ```
 
 A single-segment file — which is nearly all of them — is completely unaffected.
@@ -156,22 +178,26 @@ A single-segment file — which is nearly all of them — is completely unaffect
 The file usually knows what it is. gpx-stats reads and reports it:
 
 ```
-Activity:          Sample Track
-Recorded by:       gpx-stats-test
-Start:             2023-06-15T08:00:00Z
-End:               2023-06-15T08:02:00Z
+  Activity                              Sample Track
+  Recorded by                           gpx-stats-test
+  Start                                 2023-06-15 08:00:00 UTC
+  End                                   2023-06-15 08:02:00 UTC
 ```
 
 | Line | Read from | Notes |
 |------|-----------|-------|
-| `Activity:` | the first `<trk><name>` | A file with several tracks is one activity, so one name is reported. |
-| `Type:` | the first `<trk><type>` | As recorded (`running`, `cycling`, …); not normalised. |
-| `Recorded by:` | the `<gpx creator="...">` attribute | The device or app that wrote the file. |
-| `Start:` / `End:` | the first and last timestamped point | When the activity actually happened. |
-| `File time:` | `<metadata><time>` | When the **file** was written. Many exporters set this to the moment you downloaded it, which is why it is not called a date. |
+| `Activity` | the first `<trk><name>` | A file with several tracks is one activity, so one name is reported. |
+| `Type` | the first `<trk><type>` | As recorded (`running`, `cycling`, …); not normalised. |
+| `Recorded by` | the `<gpx creator="...">` attribute | The device or app that wrote the file. |
+| `Start` / `End` | the first and last timestamped point | When the activity actually happened. |
+| `File time` | `<metadata><time>` | When the **file** was written. Many exporters set this to the moment you downloaded it, which is why it is not called a date. |
 
 Anything the file does not carry is reported as absent — `unavailable` in text, `null` in JSON, and
 simply omitted on the web page. A file with no identity at all prints one line rather than five.
+
+Times are shown in the terminal as `2023-06-15 08:00:00 UTC`. `--json` and the web page keep
+RFC3339 (`2023-06-15T08:00:00Z`): a machine surface should stay parseable, a terminal should stay
+readable. Only the presentation differs — no figure does.
 
 Notes:
 
@@ -241,6 +267,7 @@ page still renders.
 |------|---------|-----------|---------|
 | `--json` | off | stats | JSON output |
 | `--charts` | off | stats | ASCII charts |
+| `--no-color` | off | stats | never style the text output (see [Terminal styling](#terminal-styling)) |
 | `--pause-speed` | 0.1 | both | stationary speed threshold (km/h); a segment at or below it counts as stopped |
 | `--pause-duration` | 2m0s | both | minimum pause duration |
 | `--elevation-noise` | 1.0 | both | elevation jitter threshold (m) filtered out of ascent and descent |

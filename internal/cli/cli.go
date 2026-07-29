@@ -48,6 +48,8 @@ func runStats(args []string, stdout, stderr io.Writer) int {
 	elevNoise := fs.Float64("elevation-noise", config.DefaultElevationNoiseMeters,
 		"elevation jitter threshold in meters (filters GPS noise out of ascent and descent)")
 	maxPoints := fs.Int("max-points", config.DefaultMaxTrackPoints, "maximum track points accepted")
+	noColor := fs.Bool("no-color", false,
+		"never style the text output (styling is off anyway unless stdout is a terminal; NO_COLOR is honoured)")
 
 	if code, done := parseFlags(fs, args, stderr); done {
 		return code
@@ -91,9 +93,9 @@ func runStats(args []string, stdout, stderr io.Writer) int {
 		}
 		return exitOK
 	}
-	WriteText(stdout, res)
+	WriteText(stdout, res, NoColor(*noColor))
 	if *charts {
-		WriteCharts(stdout, track, res)
+		WriteCharts(stdout, track, res, NoColor(*noColor))
 	}
 	return exitOK
 }
