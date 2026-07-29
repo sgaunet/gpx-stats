@@ -95,19 +95,36 @@ func writeActivity(w io.Writer, a stats.Activity) {
 	}
 }
 
-// writeEffort renders the two effort-kilometer conventions, each followed by
-// its legend. Their labels are wider than the column used by the statistics
-// above, so they form their own aligned block rather than re-aligning lines
-// that must stay unchanged. Neither convention is presented as the correct one.
+// writeEffort renders the two effort-kilometer conventions, each with its
+// per-hour rates and then its legend. Grouping by convention rather than by
+// figure is what lets one legend cover a convention's total and both of its
+// rates, instead of repeating the equivalence four times.
+//
+// Their labels are wider than the column used by the statistics above, so they
+// form their own aligned block rather than re-aligning lines that must stay
+// unchanged. Neither convention is presented as the correct one.
 func writeEffort(w io.Writer, r stats.Result) {
 	if !r.HasElevation {
 		fmt.Fprintln(w, "Effort km:         unavailable (no elevation data)")
 		return
 	}
-	const labelWidth = -29 // widest label, "Effort km (climb + descent):"
+	const labelWidth = -37 // widest label, "Moving effort km/h (climb + descent):"
 	fmt.Fprintf(w, "%*s %.2f\n", labelWidth, "Effort km (climb):", r.EffortKmClimb)
+	// The rates need timestamps; the totals above do not. A track without them
+	// keeps its effort kilometers and is accounted for by the "Time-based
+	// stats: unavailable" line that follows this block.
+	if r.HasTimes {
+		fmt.Fprintf(w, "%*s %.2f km/h\n", labelWidth, "Effort km/h (climb):", r.EffortSpeedKmhClimb)
+		fmt.Fprintf(w, "%*s %.2f km/h\n", labelWidth, "Moving effort km/h (climb):", r.EffortMovingSpeedKmhClimb)
+	}
 	fmt.Fprintln(w, "  100 m ascent = 1 km")
 	fmt.Fprintf(w, "%*s %.2f\n", labelWidth, "Effort km (climb + descent):", r.EffortKmClimbDescent)
+	if r.HasTimes {
+		fmt.Fprintf(w, "%*s %.2f km/h\n", labelWidth,
+			"Effort km/h (climb + descent):", r.EffortSpeedKmhClimbDescent)
+		fmt.Fprintf(w, "%*s %.2f km/h\n", labelWidth,
+			"Moving effort km/h (climb + descent):", r.EffortMovingSpeedKmhClimbDescent)
+	}
 	fmt.Fprintln(w, "  100 m ascent = 1 km, 300 m descent = 1 km")
 }
 

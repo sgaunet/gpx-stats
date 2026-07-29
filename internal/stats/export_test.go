@@ -8,6 +8,7 @@ var (
 	DescendingElevation  = descendingElevation
 	EffortKmClimb        = effortKmClimb
 	EffortKmClimbDescent = effortKmClimbDescent
+	EffortSpeedKmh       = effortSpeedKmh
 	DetectPauses         = detectPauses
 	KilometerSplits      = kilometerSplits
 )

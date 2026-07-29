@@ -119,10 +119,43 @@ func TestAnalyzeShowsEffort(t *testing.T) {
 		"0.41",
 		"100 m ascent = 1 km",
 		"100 m ascent = 1 km, 300 m descent = 1 km",
+		// sample.gpx is timestamped, so all four rates are available.
+		"Effort km/h (climb)",
+		"Moving effort km/h (climb)",
+		"Effort km/h (climb + descent)",
+		"Moving effort km/h (climb + descent)",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("results page missing %q", want)
 		}
+	}
+	if strings.Contains(body, "n/a") {
+		t.Errorf("no metric should be unavailable for a timestamped track with elevation")
+	}
+}
+
+// TestAnalyzeEffortRatesNeedTimes: the rates need timestamps as well as
+// elevation, so a track carrying only elevation shows n/a for them while its
+// effort totals still read as real figures.
+func TestAnalyzeEffortRatesNeedTimes(t *testing.T) {
+	rec := serve(t, testServer(t, nil), uploadRequest(t, fixtureBytes(t, "no_time.gpx"), nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+
+	for _, want := range []string{
+		"Effort km (climb)",
+		"Effort km/h (climb)",
+		"Moving effort km/h (climb + descent)",
+		"n/a",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("results page missing %q", want)
+		}
+	}
+	if strings.Contains(body, "km/h</p>") {
+		t.Errorf("no rate value should be rendered without timestamps")
 	}
 }
 

@@ -90,6 +90,10 @@ func assertParity(t *testing.T, fixture string) {
 		{"descendingElevationM", want.DescendingElevationM},
 		{"effortKmClimb", want.EffortKmClimb},
 		{"effortKmClimbDescent", want.EffortKmClimbDescent},
+		{"effortSpeedKmhClimb", want.EffortSpeedKmhClimb},
+		{"effortSpeedKmhClimbDescent", want.EffortSpeedKmhClimbDescent},
+		{"effortMovingSpeedKmhClimb", want.EffortMovingSpeedKmhClimb},
+		{"effortMovingSpeedKmhClimbDescent", want.EffortMovingSpeedKmhClimbDescent},
 	} {
 		if v := floatField(t, got, f.key); math.Abs(v-round3(f.want)) > 1e-9 {
 			t.Errorf("cli %s %.3f != engine %.3f", f.key, v, f.want)
@@ -100,6 +104,10 @@ func assertParity(t *testing.T, fixture string) {
 		fmt.Sprintf("%.0f m", want.DescendingElevationM),
 		fmt.Sprintf("%.2f", want.EffortKmClimb),
 		fmt.Sprintf("%.2f", want.EffortKmClimbDescent),
+		fmt.Sprintf("%.2f km/h", want.EffortSpeedKmhClimb),
+		fmt.Sprintf("%.2f km/h", want.EffortSpeedKmhClimbDescent),
+		fmt.Sprintf("%.2f km/h", want.EffortMovingSpeedKmhClimb),
+		fmt.Sprintf("%.2f km/h", want.EffortMovingSpeedKmhClimbDescent),
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("web page missing effort value %q", want)

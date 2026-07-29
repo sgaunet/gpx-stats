@@ -3,6 +3,7 @@ package stats_test
 import (
 	"math"
 	"testing"
+	"time"
 
 	"github.com/sgaunet/gpx-stats/internal/stats"
 )
@@ -59,5 +60,36 @@ func TestEffortDifferenceIsDescentTerm(t *testing.T) {
 
 	if want := desc / 300; math.Abs((both-climb)-want) > 1e-9 {
 		t.Errorf("difference = %g, want %g", both-climb, want)
+	}
+}
+
+// TestEffortSpeedKmh covers the rate: effort kilometers per hour over a given
+// duration. A non-positive duration must yield 0 rather than an infinity or a
+// NaN — callers gate on HasElevation && HasTimes to say "unavailable".
+func TestEffortSpeedKmh(t *testing.T) {
+	tests := []struct {
+		name     string
+		effortKm float64
+		d        time.Duration
+		want     float64
+	}{
+		{"one hour is the effort itself", 15, time.Hour, 15},
+		{"half an hour doubles the rate", 15, 30 * time.Minute, 30},
+		{"two hours halve it", 16, 2 * time.Hour, 8},
+		{"partial hour", 12, 45 * time.Minute, 16},
+		{"zero effort", 0, time.Hour, 0},
+		{"zero duration yields zero, not infinity", 15, 0, 0},
+		{"negative duration yields zero", 15, -time.Hour, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stats.EffortSpeedKmh(tt.effortKm, tt.d)
+			if math.IsInf(got, 0) || math.IsNaN(got) {
+				t.Fatalf("EffortSpeedKmh = %g, want a finite number", got)
+			}
+			if math.Abs(got-tt.want) > 1e-9 {
+				t.Errorf("EffortSpeedKmh = %g, want %g", got, tt.want)
+			}
+		})
 	}
 }
