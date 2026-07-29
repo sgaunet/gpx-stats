@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="gpx-stats-test" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Populated Empty Populated</name>
+    <trkseg>
+      <trkpt lat="45.0000" lon="6.0000"><ele>100.0</ele><time>2023-06-15T08:00:00Z</time></trkpt>
+      <trkpt lat="45.0000" lon="6.0004"><ele>105.0</ele><time>2023-06-15T08:00:10Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="45.0000" lon="6.0100"><ele>200.0</ele><time>2023-06-15T08:05:00Z</time></trkpt>
+      <trkpt lat="45.0000" lon="6.0104"><ele>205.0</ele><time>2023-06-15T08:05:10Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

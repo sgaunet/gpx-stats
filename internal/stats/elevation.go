@@ -9,10 +9,20 @@ import "github.com/sgaunet/gpx-stats/internal/gpx"
 // when elevation drops below the baseline, the baseline follows it down. This
 // captures sustained climbs (even in small steps) while filtering GPS jitter.
 // noiseMeters == 0 makes it the plain sum of positive deltas.
+//
+// The baseline resets at every segment boundary: the elevation difference
+// across an interrupted recording was not climbed on this track, and counting
+// it would inflate not only the reported gain but both effort-kilometer figures
+// derived from it.
 func ascendingElevation(points []gpx.TrackPoint, noiseMeters float64) float64 {
 	var gain, baseline float64
 	haveBaseline := false
-	for _, p := range points {
+	for i, p := range points {
+		// Before the HasEle check on purpose, so the reset survives a new
+		// segment whose first point happens to carry no elevation.
+		if i > 0 && !gpx.SameSegment(points[i-1], p) {
+			haveBaseline = false
+		}
 		if !p.HasEle {
 			continue
 		}
@@ -40,11 +50,15 @@ func ascendingElevation(points []gpx.TrackPoint, noiseMeters float64) float64 {
 // below the current baseline (then the baseline moves down); when elevation
 // rises above the baseline, the baseline follows it up. Keeping the two
 // symmetric is what makes a closed loop report comparable gain and loss
-// instead of a jitter-inflated descent.
+// instead of a jitter-inflated descent. The baseline resets at every segment
+// boundary for the same reason it does for ascent.
 func descendingElevation(points []gpx.TrackPoint, noiseMeters float64) float64 {
 	var loss, baseline float64
 	haveBaseline := false
-	for _, p := range points {
+	for i, p := range points {
+		if i > 0 && !gpx.SameSegment(points[i-1], p) {
+			haveBaseline = false
+		}
 		if !p.HasEle {
 			continue
 		}

@@ -36,6 +36,13 @@ func kilometerSplits(points []gpx.TrackPoint) []KmSplit {
 		if dt < 0 {
 			continue
 		}
+		if !gpx.SameSegment(p0, p1) {
+			// Recording was interrupted: no distance accrues, but the elapsed
+			// time still belongs to the kilometer that was in progress — the
+			// same treatment a standstill already receives below.
+			splitDur += dt
+			continue
+		}
 		segDist := haversineKm(p0.Lat, p0.Lon, p1.Lat, p1.Lon)
 		if segDist == 0 {
 			// Stationary segment: no distance, but its elapsed time still

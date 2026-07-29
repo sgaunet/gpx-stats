@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A <trkpt> placed directly under <trk>, outside any <trkseg>. This is not
+  schema-valid GPX, but encoding/xml does not validate against the schema, so
+  the parser must handle it without crashing or mis-numbering the segments that
+  follow it.
+-->
+<gpx version="1.1" creator="gpx-stats-test" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Stray Point</name>
+    <trkpt lat="45.0000" lon="6.0000"><ele>100.0</ele><time>2023-06-15T08:00:00Z</time></trkpt>
+    <trkseg>
+      <trkpt lat="45.0000" lon="6.0004"><ele>105.0</ele><time>2023-06-15T08:00:10Z</time></trkpt>
+      <trkpt lat="45.0000" lon="6.0008"><ele>110.0</ele><time>2023-06-15T08:00:20Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

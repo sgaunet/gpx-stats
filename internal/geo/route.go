@@ -55,12 +55,17 @@ const (
 // smoothing is applied at any size (spec 002-map-view, FR-001a). Callers that
 // need a smaller payload must compress it, not reduce it.
 type Route struct {
-	// Coords holds latitude/longitude pairs flattened as
-	// [lat0, lon0, lat1, lon1, ...]. Its length is always even.
+	// Segments holds one polyline per recorded track segment, in order. Each
+	// segment is its own slice of [lat, lon] pairs, and every segment holds at
+	// least one point — an empty <trkseg> never reaches here.
+	//
+	// Consecutive segments are deliberately NOT joined. A boundary means
+	// recording was interrupted, so the straight line between the two was never
+	// travelled and must not be drawn.
 	//
 	// Latitudes lie in [-90, 90]. Longitudes may fall outside [-180, 180]
 	// after antimeridian unwrapping — this is intentional; do not "correct" it.
-	Coords []float64
+	Segments [][][2]float64
 
 	// Bounds is the geographic extent as [minLat, minLon, maxLat, maxLon],
 	// computed from the unwrapped longitudes. Meaningful only when UseBounds.
@@ -73,8 +78,9 @@ type Route struct {
 	// Center is the fallback view centre as [lat, lon].
 	Center [2]float64
 
-	// PointCount is len(Coords)/2. Zero means there is nothing to draw and the
-	// caller should omit the map entirely; one means a lone marker and no line.
+	// PointCount is the total number of points across every segment. Zero means
+	// there is nothing to draw and the caller should omit the map entirely; one
+	// means a lone marker and no line.
 	PointCount int
 }
 
@@ -87,18 +93,22 @@ func BuildRoute(t gpx.Track) Route {
 		return Route{}
 	}
 
-	r := Route{
-		Coords:     make([]float64, 0, len(t.Points)*2),
-		PointCount: len(t.Points),
-	}
+	r := Route{PointCount: len(t.Points)}
 
-	// Single pass: unwrap longitude, round, and accumulate the extent.
+	// Single pass: unwrap longitude, round, split on segment boundaries, and
+	// accumulate the extent.
 	var offset, prevRaw float64
 	minLat, minLon := math.Inf(1), math.Inf(1)
 	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 
+	var cur [][2]float64
 	for i, p := range t.Points {
 		if i > 0 {
+			// The unwrapping state is deliberately carried ACROSS segment
+			// boundaries. The offset records where the track sits relative to
+			// the antimeridian; resetting it per segment would place a dateline
+			// track's second segment a full turn from its first and frame the
+			// whole globe.
 			switch d := p.Lon - prevRaw; {
 			case d > halfTurn:
 				// Jumped east-to-west across the antimeridian (+179 -> -179).
@@ -107,16 +117,23 @@ func BuildRoute(t gpx.Track) Route {
 				// Jumped west-to-east across it (-179 -> +179).
 				offset += fullTurn
 			}
+			if !gpx.SameSegment(t.Points[i-1], p) {
+				// cur always holds at least the previous point here, so no
+				// empty segment can be emitted.
+				r.Segments = append(r.Segments, cur)
+				cur = nil
+			}
 		}
 		prevRaw = p.Lon
 
 		lat := round(p.Lat)
 		lon := round(p.Lon + offset)
-		r.Coords = append(r.Coords, lat, lon)
+		cur = append(cur, [2]float64{lat, lon})
 
 		minLat, maxLat = math.Min(minLat, lat), math.Max(maxLat, lat)
 		minLon, maxLon = math.Min(minLon, lon), math.Max(maxLon, lon)
 	}
+	r.Segments = append(r.Segments, cur)
 
 	r.Bounds = [4]float64{minLat, minLon, maxLat, maxLon}
 	r.Center = [2]float64{(minLat + maxLat) / 2, (minLon + maxLon) / 2}

@@ -11,7 +11,21 @@
 <body>
   <section class="section">
     <div class="container">
+      <!--
+        The heading stays fixed. It names what the page is, and the page's
+        identity must not depend on the contents of an uploaded file.
+        Everything the file said about itself goes in the subtitle below.
+      -->
       <h1 class="title">Activity statistics</h1>
+      {{if .Activity.Show}}
+      <p class="subtitle is-6 has-text-grey">
+        {{if .Activity.Name}}<strong>{{.Activity.Name}}</strong>{{end}}
+        {{if .Activity.Type}}<span class="tag is-light">{{.Activity.Type}}</span>{{end}}
+        {{if .Activity.Start}}<span>{{.Activity.Start}} &rarr; {{.Activity.End}}</span>{{end}}
+        {{if .Activity.Creator}}<span>&middot; recorded by {{.Activity.Creator}}</span>{{end}}
+        {{if .Activity.FileTime}}<span>&middot; file written {{.Activity.FileTime}}</span>{{end}}
+      </p>
+      {{end}}
 
       <div class="notification is-info is-light">
         This file was processed in memory and <strong>was not stored</strong>;
@@ -28,6 +42,9 @@
           <div class="box has-text-centered">
             <p class="heading">Distance</p>
             <p class="title is-4">{{.TotalDistanceKm}} km</p>
+            {{if gt .SegmentCount 1}}
+            <p class="is-size-7 has-text-grey">{{.SegmentCount}} segments; gaps between them are not counted</p>
+            {{end}}
           </div>
         </div>
         <div class="column is-one-quarter">

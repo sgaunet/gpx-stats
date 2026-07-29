@@ -10,15 +10,28 @@ import (
 	"github.com/sgaunet/gpx-stats/internal/stats"
 )
 
+// jsonActivity is the wire form of the activity's identity. It is always
+// present as an object; each member is a pointer so an absent field serializes
+// as null rather than as an empty string that could be mistaken for a real one.
+type jsonActivity struct {
+	Creator          *string `json:"creator"`
+	Name             *string `json:"name"`
+	Type             *string `json:"type"`
+	MetadataRFC3339  *string `json:"metadataRfc3339"`
+	StartTimeRFC3339 *string `json:"startRfc3339"`
+	EndTimeRFC3339   *string `json:"endRfc3339"`
+}
+
 // jsonResult is the wire representation of a Result. It matches
 // contracts/stats.schema.json: camelCase keys, durations in seconds, and
 // pointers so unavailable metrics serialize as null rather than zero.
 type jsonResult struct {
-	TotalDistanceKm      float64  `json:"totalDistanceKm"`
-	AscendingElevationM  *float64 `json:"ascendingElevationM"`
-	DescendingElevationM *float64 `json:"descendingElevationM"`
-	EffortKmClimb        *float64 `json:"effortKmClimb"`
-	EffortKmClimbDescent *float64 `json:"effortKmClimbDescent"`
+	Activity             jsonActivity `json:"activity"`
+	TotalDistanceKm      float64      `json:"totalDistanceKm"`
+	AscendingElevationM  *float64     `json:"ascendingElevationM"`
+	DescendingElevationM *float64     `json:"descendingElevationM"`
+	EffortKmClimb        *float64     `json:"effortKmClimb"`
+	EffortKmClimbDescent *float64     `json:"effortKmClimbDescent"`
 
 	HasElevation      bool        `json:"hasElevation"`
 	TotalTimeSeconds  *float64    `json:"totalTimeSeconds"`
@@ -29,6 +42,7 @@ type jsonResult struct {
 	AvgSpeedKmh       *float64    `json:"avgSpeedKmh"`
 	AvgMovingSpeedKmh *float64    `json:"avgMovingSpeedKmh"`
 	PointCount        int         `json:"pointCount"`
+	SegmentCount      int         `json:"segmentCount"`
 	Splits            []jsonSplit `json:"splits"`
 	Pauses            []jsonPause `json:"pauses"`
 }
@@ -51,12 +65,39 @@ func round3(v float64) float64 {
 	return math.Round(v*1000) / 1000
 }
 
+// optString returns a pointer to s, or nil when s is empty, so the encoder
+// distinguishes "absent" from "present but blank".
+func optString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func toActivityJSON(a stats.Activity) jsonActivity {
+	j := jsonActivity{
+		Creator: optString(a.Creator),
+		Name:    optString(a.Name),
+		Type:    optString(a.Type),
+	}
+	if a.HasMetadataTime {
+		j.MetadataRFC3339 = optString(a.MetadataTime.Format(time.RFC3339))
+	}
+	if a.HasStartEnd {
+		j.StartTimeRFC3339 = optString(a.Start.Format(time.RFC3339))
+		j.EndTimeRFC3339 = optString(a.End.Format(time.RFC3339))
+	}
+	return j
+}
+
 func toJSON(r stats.Result) jsonResult {
 	j := jsonResult{
+		Activity:        toActivityJSON(r.Activity),
 		TotalDistanceKm: round3(r.TotalDistanceKm),
 		HasElevation:    r.HasElevation,
 		HasTimes:        r.HasTimes,
 		PointCount:      r.PointCount,
+		SegmentCount:    r.SegmentCount,
 		Splits:          []jsonSplit{},
 		Pauses:          []jsonPause{},
 	}

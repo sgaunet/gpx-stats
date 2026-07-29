@@ -50,6 +50,17 @@ func trackOf(latlons ...float64) gpx.Track {
 	return tr
 }
 
+// segTrackOf builds a track from (segment, lat, lon) triples.
+func segTrackOf(triples ...float64) gpx.Track {
+	var tr gpx.Track
+	for i := 0; i < len(triples); i += 3 {
+		tr.Points = append(tr.Points, gpx.TrackPoint{
+			SegmentIndex: int(triples[i]), Lat: triples[i+1], Lon: triples[i+2],
+		})
+	}
+	return tr
+}
+
 // --------------------------------------------------------------- invariants
 
 // numericOnly is the character set the route payload may contain. Because no
@@ -71,6 +82,14 @@ func TestRouteJSONIsNumericOnly(t *testing.T) {
 		{"near zero", trackOf(0.000001, -0.000001, 0.000002, -0.000002)},
 		{"antimeridian", trackOf(-16.5, 179.99999, -16.5, -179.99999)},
 		{"tiny deltas", trackOf(45.000001, 6.000001, 45.000002, 6.000002)},
+		// Nesting adds brackets, which the alphabet already permits — but the
+		// invariant is what the template.JS injection rests on, so the shape
+		// that actually ships is asserted rather than reasoned about.
+		{"multiple segments", segTrackOf(
+			0, 45.0, 6.0,
+			0, 45.1, 6.1,
+			1, 45.5, 6.5,
+		)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -117,22 +136,54 @@ func TestResultsPageEmbedsRoute(t *testing.T) {
 	}
 
 	// The embedded coordinates must match the parsed track exactly: same
-	// count, same order, nothing dropped (FR-001a, SC-005a).
+	// count, same order, same grouping, nothing dropped (FR-001a, SC-005a).
 	want := geo.BuildRoute(mustParse(t, fixtureBytes(t, "sample.gpx")))
-	var got []float64
+	var got [][][2]float64
 	if err := json.Unmarshal([]byte(scriptPayload(t, body, "gpx-route")), &got); err != nil {
 		t.Fatalf("decoding route payload: %v", err)
 	}
-	if len(got) != len(want.Coords) {
-		t.Fatalf("route payload has %d values, want %d", len(got), len(want.Coords))
+	if len(got) != len(want.Segments) {
+		t.Fatalf("route payload has %d segments, want %d", len(got), len(want.Segments))
 	}
-	for i := range got {
-		if math.Abs(got[i]-want.Coords[i]) > 1e-9 {
-			t.Errorf("coordinate %d = %v, want %v", i, got[i], want.Coords[i])
+	for s := range got {
+		if len(got[s]) != len(want.Segments[s]) {
+			t.Fatalf("segment %d has %d points, want %d", s, len(got[s]), len(want.Segments[s]))
+		}
+		for i := range got[s] {
+			for c := range got[s][i] {
+				if math.Abs(got[s][i][c]-want.Segments[s][i][c]) > 1e-9 {
+					t.Errorf("segment %d coordinate %d[%d] = %v, want %v",
+						s, i, c, got[s][i][c], want.Segments[s][i][c])
+				}
+			}
 		}
 	}
 	if pc, ok := cfg["pointCount"].(float64); !ok || int(pc) != want.PointCount {
 		t.Errorf("pointCount = %v, want %d", cfg["pointCount"], want.PointCount)
+	}
+}
+
+func TestResultsPageEmbedsEachSegmentSeparately(t *testing.T) {
+	// End to end: a two-segment upload must reach the browser as two polylines,
+	// or the map draws a line across ground that was never travelled.
+	rec := serve(t, testServer(t, nil), uploadRequest(t, fixtureBytes(t, "two_segments.gpx"), nil))
+	body := rec.Body.String()
+
+	var got [][][2]float64
+	if err := json.Unmarshal([]byte(scriptPayload(t, body, "gpx-route")), &got); err != nil {
+		t.Fatalf("decoding route payload: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("route payload has %d segments, want 2", len(got))
+	}
+	for i, seg := range got {
+		if len(seg) != 3 {
+			t.Errorf("segment %d has %d points, want 3", i, len(seg))
+		}
+	}
+	// Framing still covers the whole activity.
+	if cfg := mapConfigOf(t, body); cfg["pointCount"] != float64(6) {
+		t.Errorf("pointCount = %v, want 6", cfg["pointCount"])
 	}
 }
 

@@ -19,10 +19,17 @@ server-side network calls, nothing stored.**
 - **Interactive map**: the recorded track is drawn over a choice of four free
   base layers (OpenStreetMap, OpenTopoMap, CyclOSM, Humanitarian), framed on the
   activity with start/end markers, and expandable to full screen. Every recorded
-  point is drawn — the line is never simplified.
+  point is drawn — the line is never simplified — and each recorded segment is
+  drawn as its own line, so an interrupted recording never shows a line across
+  ground you did not travel.
 - **MVP statistics**: total distance (km), ascending and descending elevation
   (m), total / moving / pause time, number of pauses, average and moving speed
   (km/h), and per-kilometer splits (time + speed).
+- **Activity identity**: the activity's name, type, recording device, and start
+  and end times, read from the file and shown on every surface. See
+  [Activity identity](#activity-identity).
+- **Segment-aware**: a GPX file whose recording was interrupted is not treated as
+  one continuous line. See [Segments](#segments).
 - **Effort kilometers**: the flat distance that would cost the same effort as
   the hilly route, reported under both common conventions. See
   [Effort kilometers](#effort-kilometers).
@@ -86,6 +93,59 @@ Effort km (climb):            0.41
 Effort km (climb + descent):  0.41
   100 m ascent = 1 km, 300 m descent = 1 km
 ```
+
+## Segments
+
+A GPX file records a track as one or more `<trkseg>` blocks. A new segment starts whenever
+recording was interrupted — you stopped the watch, drove to the next trailhead, and started it
+again; or the device lost signal for a while.
+
+**gpx-stats does not join those segments.** The straight line between the end of one and the start
+of the next is not ground you covered, so nothing accrues across it: no distance, no elevation
+gain, no kilometer split, and no line on the map. The gap's elapsed time is kept and, having no
+distance, is detected as a pause — so moving time plus pause time still equals total time.
+
+This is worth knowing because **it makes gpx-stats report a shorter distance than tools that
+flatten the segments**. For `testdata/two_segments.gpx`, a ten-minute interruption during which the
+device travelled ~7.8 km:
+
+| | gpx-stats | joining the segments |
+|---|---|---|
+| Total distance | **0.13 km** | 7.93 km |
+| Ascending elevation | **20 m** | 210 m |
+| Moving time | **40s** | 10m40s |
+| Effort km (climb) | **0.33** | 10.03 |
+
+Whenever a file holds more than one segment, the count is shown next to the distance so the
+difference is never a mystery:
+
+```
+Total distance:    0.13 km (2 segments; gaps between them are not counted)
+```
+
+A single-segment file — which is nearly all of them — is completely unaffected.
+
+## Activity identity
+
+The file usually knows what it is. gpx-stats reads and reports it:
+
+```
+Activity:          Sample Track
+Recorded by:       gpx-stats-test
+Start:             2023-06-15T08:00:00Z
+End:               2023-06-15T08:02:00Z
+```
+
+| Line | Read from | Notes |
+|------|-----------|-------|
+| `Activity:` | the first `<trk><name>` | A file with several tracks is one activity, so one name is reported. |
+| `Type:` | the first `<trk><type>` | As recorded (`running`, `cycling`, …); not normalised. |
+| `Recorded by:` | the `<gpx creator="...">` attribute | The device or app that wrote the file. |
+| `Start:` / `End:` | the first and last timestamped point | When the activity actually happened. |
+| `File time:` | `<metadata><time>` | When the **file** was written. Many exporters set this to the moment you downloaded it, which is why it is not called a date. |
+
+Anything the file does not carry is reported as absent — `unavailable` in text, `null` in JSON, and
+simply omitted on the web page. A file with no identity at all prints one line rather than five.
 
 Notes:
 
