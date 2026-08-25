@@ -50,9 +50,20 @@ func runStats(args []string, stdout, stderr io.Writer) int {
 	maxPoints := fs.Int("max-points", config.DefaultMaxTrackPoints, "maximum track points accepted")
 	noColor := fs.Bool("no-color", false,
 		"never style the text output (styling is off anyway unless stdout is a terminal; NO_COLOR is honoured)")
+	showVersion := fs.Bool("version", false,
+		"print the version, commit, build date and Go toolchain, then exit")
 
 	if code, done := parseFlags(fs, args, stderr); done {
 		return code
+	}
+
+	// Before the positional check on purpose: --version names no file, and a
+	// usage error would be the wrong answer to the one question the binary can
+	// always answer. It short-circuits everything after it, so a path, --json
+	// and --charts are all ignored.
+	if *showVersion {
+		WriteVersion(stdout, NoColor(*noColor))
+		return exitOK
 	}
 
 	rest := fs.Args()

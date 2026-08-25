@@ -54,6 +54,7 @@ and run it offline.
 gpx-stats path/to/activity.gpx            # human-readable statistics
 gpx-stats --json path/to/activity.gpx     # machine-readable JSON
 gpx-stats --charts path/to/activity.gpx   # add ASCII elevation & speed charts
+gpx-stats --version                       # build identity: version, commit, date, Go
 
 # Tune pause detection (defaults: 0.1 km/h sustained for 2m0s)
 gpx-stats --pause-speed 1.5 --pause-duration 15s path/to/activity.gpx
@@ -63,6 +64,25 @@ gpx-stats --elevation-noise 3 path/to/activity.gpx
 ```
 
 Errors are written to stderr with a non-zero exit code (1 runtime, 2 usage).
+
+### Version
+
+`--version` reports which build you are running, which is what a bug report needs from a
+self-contained binary with no package manager behind it:
+
+```
+$ gpx-stats --version
+  gpx-stats  0.4.0
+  commit     96c9f3edee5d1bb1c655910e2a42b8b0d871144c
+  built      2026-07-07T18:58:31Z
+  go         go1.26.1 darwin/arm64
+```
+
+Released binaries carry the values stamped at link time. A binary you built yourself falls back,
+per field, to the build information the Go toolchain embeds on its own — so `go build` of your own
+tree reports a pseudo-version with the real commit and commit time, `go install ...@v0.4.0` reports
+the tag but no commit, and anything neither source supplies reads `unknown`. The flag needs no file
+argument and must come before the path.
 
 ### Terminal styling
 
@@ -268,6 +288,7 @@ page still renders.
 | `--json` | off | stats | JSON output |
 | `--charts` | off | stats | ASCII charts |
 | `--no-color` | off | stats | never style the text output (see [Terminal styling](#terminal-styling)) |
+| `--version` | off | stats | print version, commit, build date and Go toolchain, then exit (see [Version](#version)) |
 | `--pause-speed` | 0.1 | both | stationary speed threshold (km/h); a segment at or below it counts as stopped |
 | `--pause-duration` | 2m0s | both | minimum pause duration |
 | `--elevation-noise` | 1.0 | both | elevation jitter threshold (m) filtered out of ascent and descent |
