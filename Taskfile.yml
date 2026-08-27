@@ -54,6 +54,13 @@ tasks:
     cmds:
       - CGO_ENABLED=0 go build -o {{.BINFILE}} ./cmd/gpx-stats
 
+  demo:
+    desc: "Record doc/demo.gif with VHS"
+    deps:
+      - build
+    cmds:
+      - vhs doc/demo.tape
+
 
   image:
     desc: "Build and push Docker image"
