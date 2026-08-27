@@ -248,6 +248,25 @@ the route. Optional form fields override the pause and elevation-noise
 thresholds, and a dropped file uses whatever values the form currently shows.
 Nothing is persisted.
 
+![Upload form: privacy notice, drop-target map, file picker, threshold fields](doc/screenshots/00-form.png)
+
+The results page leads with the activity's identity, then the route on the map,
+then every statistic as a tile — including both effort-kilometer conventions
+with their legends:
+
+![Results page: the route on OpenStreetMap above the statistics tiles](doc/screenshots/result-1.png)
+
+### Charts
+
+Below the tiles, the same three series the CLI draws in ASCII are rendered as
+inline SVG, followed by the kilometer splits table.
+
+![Elevation against distance](doc/screenshots/result-2.png)
+
+![Elevation against elapsed time](doc/screenshots/result-3.png)
+
+![Speed per kilometer, above the kilometer splits table](doc/screenshots/result-4.png)
+
 ### The map
 
 The track is drawn over one of four base layers, switchable from the control in
