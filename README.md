@@ -9,6 +9,10 @@ server-side network calls, nothing stored.**
 > viewing. Your GPX file and its statistics never leave the server. See
 > [Privacy](#privacy).
 
+## Demo
+
+![gpx-stats demo](doc/demo.gif)
+
 ## Features
 
 - **CLI**: pass a GPX path, get raw statistics as text (or `--json`), plus
@@ -308,6 +312,7 @@ bounded only by `--max-points`.
 ```sh
 go test -race ./...   # unit + handler tests with the race detector (or: task test)
 task lint             # gofmt + go vet + golangci-lint
+task demo             # re-record doc/demo.gif from doc/demo.tape (needs vhs, ttyd, ffmpeg)
 ```
 
 ## Project layout
