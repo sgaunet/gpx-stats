@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -154,7 +155,9 @@ func TestAnalyzeEffortRatesNeedTimes(t *testing.T) {
 			t.Errorf("results page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "km/h</p>") {
+	// A rendered rate is a figure followed by its unit and then markup
+	// ("3.01 km/h</dd>"); a label never is ("Effort km/h (climb)").
+	if strings.Contains(body, "km/h<") {
 		t.Errorf("no rate value should be rendered without timestamps")
 	}
 }
@@ -242,8 +245,10 @@ func TestAnalyzeElevationNoiseOverride(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), ">0 m<") {
-		t.Errorf("a 1000 m threshold should filter all gain away")
+	for _, label := range []string{"Ascending elevation", "Descending elevation"} {
+		if got := figure(t, rec.Body.String(), label); got != "0 m" {
+			t.Errorf("%s = %q; a 1000 m threshold should filter it all away", label, got)
+		}
 	}
 }
 
@@ -278,11 +283,39 @@ func TestAnalyzeRejectsGET(t *testing.T) {
 }
 
 func TestStaticAssetServed(t *testing.T) {
-	rec := serve(t, testServer(t, nil), getRequest(t, "/static/bulma.min.css"))
+	rec := serve(t, testServer(t, nil), getRequest(t, "/static/app.css"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "css") {
 		t.Errorf("content-type = %q, want css", ct)
+	}
+}
+
+// figure returns the rendered value of the legend entry labelled label, with
+// markup stripped and whitespace collapsed ("1678 m"). It fails the test when
+// the page has no such entry.
+func figure(t *testing.T, body, label string) string {
+	t.Helper()
+	re := regexp.MustCompile(`(?s)<dt>(?:<svg.*?</svg>)?` + regexp.QuoteMeta(label) + `</dt>\s*<dd class="fig">(.*?)</dd>`)
+	m := re.FindStringSubmatch(body)
+	if m == nil {
+		t.Fatalf("page has no figure labelled %q", label)
+	}
+	text := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(m[1], "")
+	return strings.Join(strings.Fields(text), " ")
+}
+
+// TestAnalyzeFigures pins the legend's headline figures for sample.gpx, read as
+// a visitor reads them: value and unit together.
+func TestAnalyzeFigures(t *testing.T) {
+	body := serve(t, testServer(t, nil), uploadRequest(t, fixtureBytes(t, "sample.gpx"), nil)).Body.String()
+	for label, want := range map[string]string{
+		"Ascending elevation": "25 m",
+		"Effort km (climb)":   "0.41",
+	} {
+		if got := figure(t, body, label); got != want {
+			t.Errorf("%s = %q, want %q", label, got, want)
+		}
 	}
 }

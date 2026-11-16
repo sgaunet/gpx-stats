@@ -1,172 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>gpx-stats — results</title>
-  <link rel="stylesheet" href="/static/bulma.min.css">
+  {{template "head" "Activity statistics — gpx-stats"}}
   <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/static/map.css">
 </head>
 <body>
-  <section class="section">
-    <div class="container">
-      <!--
-        The heading stays fixed. It names what the page is, and the page's
-        identity must not depend on the contents of an uploaded file.
-        Everything the file said about itself goes in the subtitle below.
-      -->
-      <h1 class="title">Activity statistics</h1>
+<main>
+<div class="sheet sheet--results">
+  <section class="legend" aria-labelledby="page-title">
+    <nav class="legend-nav" aria-label="gpx-stats">
+      {{template "brand"}}
+      <a class="button button--quiet" href="/">Analyze another file</a>
+    </nav>
+
+    <!--
+      The heading stays fixed. It names what the page is, and the page's
+      identity must not depend on the contents of an uploaded file.
+      Everything the file said about itself goes in the line below it.
+    -->
+    <header class="legend-head">
+      <h1 id="page-title">Activity statistics</h1>
       {{if .Activity.Show}}
-      <p class="subtitle is-6 has-text-grey">
-        {{if .Activity.Name}}<strong>{{.Activity.Name}}</strong>{{end}}
-        {{if .Activity.Type}}<span class="tag is-light">{{.Activity.Type}}</span>{{end}}
-        {{if .Activity.Start}}<span>{{.Activity.Start}} &rarr; {{.Activity.End}}</span>{{end}}
-        {{if .Activity.Creator}}<span>&middot; recorded by {{.Activity.Creator}}</span>{{end}}
-        {{if .Activity.FileTime}}<span>&middot; file written {{.Activity.FileTime}}</span>{{end}}
+      <p class="identity">
+        {{if .Activity.Name}}<span class="identity-name">{{.Activity.Name}}</span>{{end}}
+        {{if .Activity.Type}}<span class="tag">{{.Activity.Type}}</span>{{end}}
+        {{if .Activity.Start}}<span><time datetime="{{.Activity.Start}}">{{.Activity.Start}}</time> &rarr; <time datetime="{{.Activity.End}}">{{.Activity.End}}</time></span>{{end}}
+        {{if .Activity.Creator}}<span>recorded by {{.Activity.Creator}}</span>{{end}}
+        {{if .Activity.FileTime}}<span>file written <time datetime="{{.Activity.FileTime}}">{{.Activity.FileTime}}</time></span>{{end}}
       </p>
       {{end}}
+    </header>
 
-      <div class="notification is-info is-light">
-        This file was processed in memory and <strong>was not stored</strong>;
-        it never left this server. Map backgrounds are loaded by
-        <strong>your browser</strong> directly from the map provider, which can
-        see the area you are viewing — your GPX file is never sent to them.
-        <a href="/">Analyze another file</a>.
+    <dl class="legend-list">
+      <div class="entry">
+        <dt>Distance</dt>
+        <dd class="fig">{{.TotalDistanceKm}} <span class="u">km</span></dd>
+        {{if .ScaleBar.Show}}
+        <dd class="scale" aria-hidden="true">
+          <span class="scale-bar">{{range .ScaleBar.Segments}}<span class="scale-seg{{if .Filled}} is-filled{{end}}" style="width: {{.Width}}%"></span>{{end}}</span>
+          <span class="scale-ticks">{{range .ScaleBar.Ticks}}<span class="scale-tick" style="left: {{.Left}}%">{{.Label}}{{with .Unit}} {{.}}{{end}}</span>{{end}}</span>
+        </dd>
+        {{end}}
+        {{if gt .SegmentCount 1}}
+        <dd class="note">{{.SegmentCount}} segments; gaps between them are not counted</dd>
+        {{end}}
       </div>
-
-      {{template "mapview" .Map}}
-
-      <div class="columns is-multiline">
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Distance</p>
-            <p class="title is-4">{{.TotalDistanceKm}} km</p>
-            {{if gt .SegmentCount 1}}
-            <p class="is-size-7 has-text-grey">{{.SegmentCount}} segments; gaps between them are not counted</p>
-            {{end}}
-          </div>
-        </div>
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Ascending elevation</p>
-            <p class="title is-4">{{if .HasElevation}}{{.AscendingElevationM}} m{{else}}n/a{{end}}</p>
-          </div>
-        </div>
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Total time</p>
-            <p class="title is-4">{{if .HasTimes}}{{.TotalTime}}{{else}}n/a{{end}}</p>
-          </div>
-        </div>
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Moving time</p>
-            <p class="title is-4">{{if .HasTimes}}{{.MovingTime}}{{else}}n/a{{end}}</p>
-          </div>
-        </div>
+      <div class="entry">
+        <dt><svg class="spot" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M6 1.5 11 10.5H1z"/></svg>Ascending elevation</dt>
+        <dd class="fig">{{if .HasElevation}}{{.AscendingElevationM}} <span class="u">m</span>{{else}}n/a{{end}}</dd>
       </div>
-
-      <div class="columns is-multiline">
-        <div class="column is-one-third">
-          <div class="box has-text-centered">
-            <p class="heading">Descending elevation</p>
-            <p class="title is-4">{{if .HasElevation}}{{.DescendingElevationM}} m{{else}}n/a{{end}}</p>
-          </div>
-        </div>
-        <div class="column is-one-third">
-          <div class="box has-text-centered">
-            <p class="heading">Effort km (climb)</p>
-            <p class="title is-4">{{if .HasElevation}}{{.EffortKmClimb}}{{else}}n/a{{end}}</p>
-            <p class="is-size-7">Effort km/h (climb): {{if and .HasElevation .HasTimes}}{{.EffortSpeedKmhClimb}} km/h{{else}}n/a{{end}}</p>
-            <p class="is-size-7">Moving effort km/h (climb): {{if and .HasElevation .HasTimes}}{{.EffortMovingSpeedKmhClimb}} km/h{{else}}n/a{{end}}</p>
-            <p class="is-size-7 has-text-grey">100 m ascent = 1 km</p>
-          </div>
-        </div>
-        <div class="column is-one-third">
-          <div class="box has-text-centered">
-            <p class="heading">Effort km (climb + descent)</p>
-            <p class="title is-4">{{if .HasElevation}}{{.EffortKmClimbDescent}}{{else}}n/a{{end}}</p>
-            <p class="is-size-7">Effort km/h (climb + descent): {{if and .HasElevation .HasTimes}}{{.EffortSpeedKmhClimbDescent}} km/h{{else}}n/a{{end}}</p>
-            <p class="is-size-7">Moving effort km/h (climb + descent): {{if and .HasElevation .HasTimes}}{{.EffortMovingSpeedKmhClimbDescent}} km/h{{else}}n/a{{end}}</p>
-            <p class="is-size-7 has-text-grey">100 m ascent = 1 km, 300 m descent = 1 km</p>
-          </div>
-        </div>
+      <div class="entry">
+        <dt><svg class="spot" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M1 1.5h10L6 10.5z"/></svg>Descending elevation</dt>
+        <dd class="fig">{{if .HasElevation}}{{.DescendingElevationM}} <span class="u">m</span>{{else}}n/a{{end}}</dd>
       </div>
-
-      {{if .HasTimes}}
-      <div class="columns is-multiline">
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Pause time</p>
-            <p class="title is-5">{{.PauseTime}} ({{.PauseCount}})</p>
-          </div>
-        </div>
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Avg speed</p>
-            <p class="title is-5">{{.AvgSpeedKmh}} km/h</p>
-          </div>
-        </div>
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Avg moving speed</p>
-            <p class="title is-5">{{.AvgMovingSpeedKmh}} km/h</p>
-          </div>
-        </div>
-        <div class="column is-one-quarter">
-          <div class="box has-text-centered">
-            <p class="heading">Points</p>
-            <p class="title is-5">{{.PointCount}}</p>
-          </div>
-        </div>
+      <div class="entry entry--half">
+        <dt>Moving time</dt>
+        <dd class="fig">{{if .HasTimes}}{{.MovingTime}}{{else}}n/a{{end}}</dd>
       </div>
-      {{end}}
-
-      {{if .ElevationDistanceChart}}
-      <div class="box">
-        <h2 class="subtitle">Elevation vs. distance</h2>
-        {{.ElevationDistanceChart}}
+      <div class="entry entry--half">
+        <dt>Total time</dt>
+        <dd class="fig">{{if .HasTimes}}{{.TotalTime}}{{else}}n/a{{end}}</dd>
       </div>
-      {{end}}
+    </dl>
 
-      {{if .ElevationTimeChart}}
-      <div class="box">
-        <h2 class="subtitle">Elevation vs. time</h2>
-        {{.ElevationTimeChart}}
+    <h2 class="legend-group">Effort kilometers</h2>
+    <dl class="legend-list">
+      <div class="entry entry--effort">
+        <dt>Effort km (climb)</dt>
+        <dd class="fig">{{if .HasElevation}}{{.EffortKmClimb}}{{else}}n/a{{end}}</dd>
+        <dd class="rates">
+          <dl>
+            <div><dt>Effort km/h (climb)</dt><dd>{{if and .HasElevation .HasTimes}}{{.EffortSpeedKmhClimb}} km/h{{else}}n/a{{end}}</dd></div>
+            <div><dt>Moving effort km/h (climb)</dt><dd>{{if and .HasElevation .HasTimes}}{{.EffortMovingSpeedKmhClimb}} km/h{{else}}n/a{{end}}</dd></div>
+          </dl>
+        </dd>
+        <dd class="note">100 m ascent = 1 km</dd>
       </div>
-      {{end}}
+      <div class="entry entry--effort">
+        <dt>Effort km (climb + descent)</dt>
+        <dd class="fig">{{if .HasElevation}}{{.EffortKmClimbDescent}}{{else}}n/a{{end}}</dd>
+        <dd class="rates">
+          <dl>
+            <div><dt>Effort km/h (climb + descent)</dt><dd>{{if and .HasElevation .HasTimes}}{{.EffortSpeedKmhClimbDescent}} km/h{{else}}n/a{{end}}</dd></div>
+            <div><dt>Moving effort km/h (climb + descent)</dt><dd>{{if and .HasElevation .HasTimes}}{{.EffortMovingSpeedKmhClimbDescent}} km/h{{else}}n/a{{end}}</dd></div>
+          </dl>
+        </dd>
+        <dd class="note">100 m ascent = 1 km, 300 m descent = 1 km</dd>
+      </div>
+    </dl>
 
-      {{if .SpeedChart}}
-      <div class="box">
-        <h2 class="subtitle">Speed per kilometer</h2>
-        {{.SpeedChart}}
+    {{if .HasTimes}}
+    <h2 class="legend-group">Time &amp; speed</h2>
+    <dl class="legend-list legend-list--minor">
+      <div class="entry entry--half">
+        <dt>Pause time</dt>
+        <dd class="fig">{{.PauseTime}} <span class="u">({{.PauseCount}})</span></dd>
       </div>
-      {{end}}
+      <div class="entry entry--half">
+        <dt>Points</dt>
+        <dd class="fig">{{.PointCount}}</dd>
+      </div>
+      <div class="entry entry--half">
+        <dt>Avg speed</dt>
+        <dd class="fig">{{.AvgSpeedKmh}} <span class="u">km/h</span></dd>
+      </div>
+      <div class="entry entry--half">
+        <dt>Avg moving speed</dt>
+        <dd class="fig">{{.AvgMovingSpeedKmh}} <span class="u">km/h</span></dd>
+      </div>
+    </dl>
+    {{end}}
 
-      {{if .Splits}}
-      <div class="box">
-        <h2 class="subtitle">Kilometer splits</h2>
-        <table class="table is-striped is-fullwidth">
-          <thead>
-            <tr><th>km</th><th>Distance (km)</th><th>Time</th><th>Speed (km/h)</th></tr>
-          </thead>
-          <tbody>
-            {{range .Splits}}
-            <tr>
-              <td>{{.Index}}</td>
-              <td>{{.DistanceKm}}</td>
-              <td>{{.Duration}}</td>
-              <td>{{.SpeedKmh}}</td>
-            </tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-      {{end}}
-    </div>
+    <p class="privacy">
+      This file was processed in memory and <strong>was not stored</strong>;
+      it never left this server. Map backgrounds are loaded by
+      <strong>your browser</strong> directly from the map provider, which can
+      see the area you are viewing — your GPX file is never sent to them.
+    </p>
   </section>
-  <script src="/static/vendor/leaflet/leaflet.js"></script>
-  <script src="/static/map.js"></script>
+
+  <div class="field-area">
+    {{if .Map.Show}}
+    {{template "mapview" .Map}}
+    {{else}}
+    <p class="empty-map">No map to draw: this file has no usable coordinates.</p>
+    {{end}}
+
+    {{if .ElevationDistanceChart.Wide}}
+    <figure class="chart chart--profile">
+      <figcaption>Elevation vs. distance <span class="units">m, km</span></figcaption>
+      <div class="chart-wide">{{.ElevationDistanceChart.Wide}}</div>
+      <div class="chart-compact">{{.ElevationDistanceChart.Compact}}</div>
+    </figure>
+    {{end}}
+  </div>
+</div>
+
+{{if .ElevationTimeChart.Wide}}
+<section class="plate" aria-labelledby="h-elevation-time">
+  <header class="plate-head">
+    <h2 id="h-elevation-time">Elevation vs. time</h2>
+    <p class="note">Elevation in metres over elapsed time, pauses included.</p>
+  </header>
+  <figure class="plate-body chart">
+    <div class="chart-wide">{{.ElevationTimeChart.Wide}}</div>
+    <div class="chart-compact">{{.ElevationTimeChart.Compact}}</div>
+  </figure>
+</section>
+{{end}}
+
+{{if .SpeedChart.Wide}}
+<section class="plate" aria-labelledby="h-speed">
+  <header class="plate-head">
+    <h2 id="h-speed">Speed per kilometer</h2>
+    <p class="note">Average speed over each kilometer, in km/h.</p>
+  </header>
+  <figure class="plate-body chart chart--speed">
+    <div class="chart-wide">{{.SpeedChart.Wide}}</div>
+    <div class="chart-compact">{{.SpeedChart.Compact}}</div>
+  </figure>
+</section>
+{{end}}
+
+{{if .Splits}}
+<section class="plate" aria-labelledby="h-splits">
+  <header class="plate-head">
+    <h2 id="h-splits">Kilometer splits</h2>
+    <p class="note">Time and speed for each kilometer; the last split is whatever distance remains.</p>
+  </header>
+  <div class="plate-body">
+    <table class="splits" aria-labelledby="h-splits">
+      <thead>
+        <tr><th scope="col">km</th><th scope="col">Distance (km)</th><th scope="col">Time</th><th scope="col">Speed (km/h)</th></tr>
+      </thead>
+      <tbody>
+        {{range .Splits}}
+        <tr>
+          <th scope="row">{{.Index}}</th>
+          <td>{{.DistanceKm}}</td>
+          <td>{{.Duration}}</td>
+          <td>{{.SpeedKmh}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}
+</main>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/map.js"></script>
 </body>
 </html>

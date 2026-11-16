@@ -49,8 +49,8 @@ go build -o gpx-stats ./cmd/gpx-stats
 # or: task build
 ```
 
-The binary embeds all web assets (Bulma CSS, HTML templates); copy it anywhere
-and run it offline.
+The binary embeds all web assets (its own stylesheet and fonts, the vendored
+Leaflet library, HTML templates); copy it anywhere and run it offline.
 
 ## CLI usage
 

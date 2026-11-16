@@ -1,0 +1,23 @@
+{{/*
+  Shared fragments. The page heading (h1) is never defined here: each page
+  names itself, and the results page's heading must not depend on the file.
+*/}}
+{{define "head"}}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{.}}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/app.css">
+{{end}}
+
+{{define "brand"}}
+<a class="brand" href="/">
+  <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <path class="brand-lit" d="M1 28.5 9 13 13.5 18.5 19 3.5 31 28.5Z"/>
+    <path class="brand-shade" d="M19 3.5 20.6 12 19.6 18.5 22.5 28.5 31 28.5Z"/>
+  </svg>
+  <span>gpx-stats</span>
+</a>
+{{end}}

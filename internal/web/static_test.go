@@ -17,6 +17,11 @@ func TestVendoredAssetsAreServed(t *testing.T) {
 		"/static/vendor/leaflet/LICENSE",
 		"/static/map.js",
 		"/static/map.css",
+		"/static/app.css",
+		"/static/favicon.svg",
+		"/static/fonts/source-sans-3-latin-wght-normal.woff2",
+		"/static/fonts/source-sans-3-latin-wght-italic.woff2",
+		"/static/fonts/LICENSE",
 	} {
 		t.Run(path, func(t *testing.T) {
 			rec := serve(t, srv, getRequest(t, path))

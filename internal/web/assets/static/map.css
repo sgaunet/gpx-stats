@@ -1,25 +1,39 @@
 /* Map presentation for gpx-stats.
  *
- * Kept small and additive: Bulma styles the page, Leaflet styles the map, and
- * this file only covers what neither provides — container sizing, the start and
- * end markers, the full-screen fallback, and the drop-target affordance.
+ * app.css lays the page out and owns the tokens; Leaflet draws the map. This
+ * file only covers what sits between them: how the map fills its field, the
+ * start and end markers, the full-screen fallback, the drop-target affordance,
+ * and Leaflet's controls redrawn in the sheet's own vocabulary (square, flat,
+ * ink-bordered).
  */
 
 .gpx-map-wrapper {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 300px;
 }
 
 .gpx-map {
-  /* Leaflet needs an explicit height; a percentage would collapse to zero. */
-  height: 460px;
-  width: 100%;
-  border-radius: 4px;
-  background-color: #e8e8e8; /* visible when tiles fail to load */
+  /* Absolutely filling the wrapper gives Leaflet the explicit size it needs;
+     a percentage height inside a flex column would collapse to zero. */
+  position: absolute;
+  inset: 0;
+  background-color: var(--paper-2); /* visible while tiles load, or if they fail */
+  font-family: var(--font);
 }
 
-@media screen and (max-width: 768px) {
-  .gpx-map {
-    height: 320px;
+@media (max-width: 1099px) {
+  .gpx-map-wrapper {
+    flex: none;
+    min-height: 0;
+    height: min(62vh, 560px);
+  }
+}
+
+@media (max-width: 480px) {
+  .gpx-map-wrapper {
+    height: 56vh;
+    min-height: 300px;
   }
 }
 
@@ -27,6 +41,7 @@
  *
  * Letters, not just colours: colour alone is not a usable distinction for
  * everyone, and using text avoids vendoring Leaflet's marker PNGs entirely.
+ * The white ring keeps them legible on any tile.
  */
 .gpx-endpoint {
   display: flex;
@@ -35,18 +50,18 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-  font: bold 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #fff;
+  border: 2px solid var(--map-halo);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  font: 700 13px/1 var(--font);
+  color: var(--map-halo);
 }
 
 .gpx-endpoint-start {
-  background-color: #257942; /* Bulma green */
+  background-color: var(--map-start, #257942);
 }
 
 .gpx-endpoint-end {
-  background-color: #cc0f35; /* Bulma red */
+  background-color: var(--map-route, #c8102e);
 }
 
 /* Full-screen fallback.
@@ -59,48 +74,155 @@
   inset: 0;
   height: 100% !important;
   width: 100%;
-  z-index: 3000; /* above Bulma's navbar/modal range */
-  border-radius: 0;
+  z-index: 3000; /* above Leaflet's own panes and controls */
 }
 
 /* The native Fullscreen API sizes the element itself; make sure it fills. */
 .gpx-map:fullscreen {
   height: 100%;
   width: 100%;
+}
+
+/* ------------------------------------------------------------ controls */
+
+.leaflet-container {
+  font-family: var(--font);
+}
+
+.leaflet-touch .leaflet-bar,
+.leaflet-bar,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-control-layers {
+  border: 1px solid var(--ink);
   border-radius: 0;
+  box-shadow: none;
+  background: var(--paper);
+  background-clip: padding-box;
+}
+
+.leaflet-bar a,
+.leaflet-touch .leaflet-bar a {
+  background-color: var(--paper);
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0 !important;
+}
+
+.leaflet-bar a:last-child {
+  border-bottom: 0;
+}
+
+.leaflet-bar a:hover,
+.leaflet-bar a:focus-visible {
+  background-color: var(--ink);
+  color: var(--paper);
+}
+
+.leaflet-bar a.leaflet-disabled {
+  background-color: var(--paper-2);
+  color: var(--ink-2);
 }
 
 .gpx-fullscreen-control a {
-  font-size: 16px;
-  line-height: 26px;
-  text-align: center;
-  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Drop target.
- *
- * Only ever applied on the landing page, and only while a drag is over the map.
- */
-.gpx-map.is-drop-target {
-  outline: 3px dashed #3e8ed0; /* Bulma link blue */
-  outline-offset: -6px;
+.gpx-fullscreen-control svg {
+  display: block;
 }
 
-.gpx-drop-message {
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
+/* Leaflet's stock layers icon is a PNG that is deliberately not vendored
+   (vendor/leaflet/VERSION); this draws the same affordance as an inline SVG. */
+.leaflet-control-layers-toggle,
+.leaflet-retina .leaflet-control-layers-toggle {
+  background-image: var(--icon-layers);
+  background-size: 22px 22px;
 }
 
-.gpx-drop-message[hidden] {
-  display: none;
+.leaflet-control-layers-expanded {
+  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-2);
+  color: var(--ink);
+  font-size: var(--fs-sm);
 }
 
-.gpx-drop-message.is-error {
-  color: #cc0f35;
+.leaflet-control-layers label {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 2px 0;
+}
+
+.leaflet-control-layers-selector {
+  accent-color: var(--water);
 }
 
 /* Leaflet's attribution must stay legible: it is a licence obligation, not
  * decoration, so it never gets shrunk out of readability or hidden. */
-.leaflet-control-attribution {
-  font-size: 11px;
+.leaflet-container .leaflet-control-attribution {
+  font-size: var(--fs-xs);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  color: var(--ink-2);
+}
+
+.leaflet-control-attribution a {
+  color: var(--water-ink);
+}
+
+/* ---------------------------------------------------------- drop target
+ *
+ * Only ever applied on the landing page. The hint is revealed by map.js once a
+ * drop can really be handled; the message replaces it while a drag is over the
+ * map or after a drop.
+ */
+/* The frame is drawn on the wrapper, above Leaflet's panes: an outline on the
+   map element itself would be painted over by the tiles. */
+.gpx-map-wrapper:has(.gpx-map.is-drop-target)::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  z-index: 900;
+  border: 3px dashed var(--water);
+  pointer-events: none;
+}
+
+.gpx-drop-hint,
+.gpx-drop-message {
+  position: absolute;
+  top: var(--s-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: calc(100% - 140px);
+  margin: 0;
+  padding: 6px var(--s-3);
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  text-align: center;
+  pointer-events: none;
+}
+
+.gpx-map-wrapper:has(.gpx-drop-message:not([hidden])) .gpx-drop-hint {
+  display: none;
+}
+
+/* A touch-only device cannot drag a file onto the map; the file control is
+   its one path, so the hint would only mislead there. */
+@media (hover: none) and (pointer: coarse) {
+  .gpx-drop-hint {
+    display: none;
+  }
+}
+
+.gpx-drop-message.is-error {
+  border-color: var(--danger);
+  background: var(--danger-field);
+}
+
+.notice--map {
+  margin: 0;
+  border-width: 1px 0 0;
 }

@@ -75,6 +75,17 @@
     });
   }
 
+  /**
+   * Reads a colour token from the page's stylesheet, so the map's inks are
+   * defined in one place with the rest of the palette. Falls back when the
+   * token is missing (a stylesheet that failed to load must not cost the user
+   * the route).
+   */
+  function cssToken(name, fallback) {
+    var value = window.getComputedStyle(document.documentElement).getPropertyValue(name);
+    return value && value.trim() ? value.trim() : fallback;
+  }
+
   function drawRoute(map, cfg) {
     // One entry per recorded segment, each already a list of [lat, lon] pairs:
     // exactly the multi-polyline shape L.polyline accepts, so there is nothing
@@ -106,7 +117,7 @@
     }
 
     L.polyline(segs, {
-      color: '#cc0f35',
+      color: cssToken('--map-route', '#c8102e'),
       weight: 3,
       opacity: 0.85,
       // Canvas rather than SVG: one huge path in the DOM is what actually
@@ -126,19 +137,54 @@
   }
 
   function frame(map, cfg) {
+    // No animation: framing is a layout step, and it must finish (and fire
+    // its move events) before refitOnResize's guard is lowered.
     if (cfg.useBounds && cfg.bounds) {
       map.fitBounds(
         [
           [cfg.bounds[0], cfg.bounds[1]],
           [cfg.bounds[2], cfg.bounds[3]],
         ],
-        { padding: [20, 20] }
+        { padding: [20, 20], animate: false }
       );
       return;
     }
     // Single point, or an extent too small to frame: the server has already
     // decided this and supplied a centre and zoom.
-    map.setView(cfg.center, cfg.zoom);
+    map.setView(cfg.center, cfg.zoom, { animate: false });
+  }
+
+  /**
+   * Keeps the server's framing when the map's box changes size: a window
+   * resize, a phone rotating, the layout switching between its desktop and
+   * single-column forms, or entering full screen. Leaflet only lays tiles out
+   * for the size it last measured, and the framing was computed for that size
+   * too. Once the visitor has panned or zoomed, the view is theirs and only
+   * the tile layout is refreshed.
+   */
+  function refitOnResize(map, cfg, container) {
+    if (typeof window.ResizeObserver !== 'function') {
+      return;
+    }
+    var touched = false;
+    var framing = false;
+    // Drag, wheel, buttons, keyboard and pinch all start a move or a zoom;
+    // the refit's own move is fenced off by the framing flag.
+    map.on('movestart zoomstart', function () {
+      if (!framing) {
+        touched = true;
+      }
+    });
+    var observer = new window.ResizeObserver(function () {
+      map.invalidateSize({ pan: false });
+      if (touched) {
+        return;
+      }
+      framing = true;
+      frame(map, cfg);
+      framing = false;
+    });
+    observer.observe(container);
   }
 
   // ------------------------------------------------------------ fullscreen
@@ -150,7 +196,12 @@
         var wrap = L.DomUtil.create('div', 'leaflet-bar gpx-fullscreen-control');
         var link = L.DomUtil.create('a', '', wrap);
         link.href = '#';
-        link.innerHTML = '&#x26F6;';
+        // A drawn icon, not a Unicode glyph: the glyph's rendering depends on
+        // whichever font happens to carry it. Fixed markup, no user input.
+        link.innerHTML =
+          '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">' +
+          '<path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" ' +
+          'stroke-width="1.75" stroke-linecap="square"/></svg>';
         link.title = 'Toggle full screen';
         link.setAttribute('role', 'button');
         link.setAttribute('aria-label', 'Toggle full screen');
@@ -228,6 +279,14 @@
       return;
     }
 
+    // Only now that a drop can really be turned into a form submission is the
+    // affordance advertised. Without scripting the hint stays hidden, and the
+    // form remains the one path the page offers.
+    var hint = document.getElementById('gpx-drop-hint');
+    if (hint) {
+      hint.hidden = false;
+    }
+
     function say(text, isError) {
       if (!message) {
         return;
@@ -256,7 +315,7 @@
           e.dataTransfer.dropEffect = 'copy';
         }
         highlight(true);
-        say('Drop your GPX file to analyse it.', false);
+        say('Drop your GPX file to analyze it.', false);
       });
     });
 
@@ -289,7 +348,7 @@
         return;
       }
       if (isDirectory(dt)) {
-        say('Folders cannot be analysed. Drop a single GPX file.', true);
+        say('Folders cannot be analyzed. Drop a single GPX file.', true);
         return;
       }
 
@@ -301,7 +360,7 @@
       carrier.items.add(files[0]);
       input.files = carrier.files;
 
-      say('Analysing ' + files[0].name + '…', false);
+      say('Analyzing ' + files[0].name + '…', false);
       form.requestSubmit();
     });
 
@@ -318,9 +377,45 @@
     }
   }
 
+  // ------------------------------------------------------------ busy state
+
+  /**
+   * Marks the upload form busy once it is submitted, by the button or by a
+   * drop, so a large file does not look like a dead click. Purely visual: the
+   * submission itself is the browser's ordinary form post.
+   */
+  function addBusyState() {
+    var form = document.querySelector('form[action="/analyze"]');
+    if (!form) {
+      return;
+    }
+    form.addEventListener('submit', function () {
+      var button = form.querySelector('button[type="submit"]');
+      form.setAttribute('aria-busy', 'true');
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Analyzing…';
+      }
+    });
+    // Coming back with the browser's back button restores the page from the
+    // back-forward cache, busy state included; undo it.
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) {
+        return;
+      }
+      var button = form.querySelector('button[type="submit"]');
+      form.removeAttribute('aria-busy');
+      if (button) {
+        button.disabled = false;
+        button.textContent = button.getAttribute('data-label') || button.textContent;
+      }
+    });
+  }
+
   // ------------------------------------------------------------ bootstrap
 
   function init() {
+    addBusyState();
     var container = document.getElementById('gpx-map');
     if (!container || typeof L === 'undefined') {
       return;
@@ -344,6 +439,7 @@
       drawRoute(map, cfg);
     }
     addFullscreenControl(map, container);
+    refitOnResize(map, cfg, container);
     if (cfg.dropzone) {
       addDropzone(map, container);
     }

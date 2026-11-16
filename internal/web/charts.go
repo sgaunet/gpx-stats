@@ -3,6 +3,8 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"html/template"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -12,51 +14,175 @@ import (
 	"github.com/sgaunet/gpx-stats/internal/stats"
 )
 
-const (
-	chartWidth  = 720
-	chartHeight = 320
-
-	// elevationSamples is the resampling resolution for elevation profiles: dense
-	// enough for a smooth SVG curve. elevationLabelCount thins the x-axis tick
-	// labels so they do not collide.
-	elevationSamples    = 200
-	elevationLabelCount = 7
-)
-
-// elevationVsDistanceSVG renders the elevation-over-distance profile as SVG bytes,
-// with the x-axis labelled in kilometres. It returns (nil, nil) when the track has
-// no usable elevation series (the chart is simply skipped).
-func elevationVsDistanceSVG(track gpx.Track) ([]byte, error) {
-	prof, ok := stats.ElevationOverDistance(track, elevationSamples)
-	if !ok {
-		return nil, nil
-	}
-	prec := kmLabelPrecision(prof.XMax)
-	labels := axisLabels(prof.XMax, len(prof.Elevations), func(km float64) string {
-		return strconv.FormatFloat(km, 'f', prec, 64)
-	})
-	return renderElevation(prof.Elevations, "Elevation vs. distance (m)", labels)
+// chartSize is the pixel box a chart is laid out in. A server-rendered SVG
+// scales its text along with everything else, so one rendering cannot be
+// legible both across a desktop column and on a phone: each chart is drawn
+// twice, once per size, and the stylesheet shows the one that fits.
+type chartSize struct {
+	width, height int
+	// xLabels is how many x-axis tick labels this width can hold without
+	// collisions.
+	xLabels int
 }
 
-// elevationVsTimeSVG renders the elevation-over-time profile as SVG bytes, with the
-// x-axis labelled in elapsed time. It returns (nil, nil) when the track lacks
+var (
+	// wideChart matches the sheet's map field at common desktop widths (about
+	// 820-1100px), so labels render close to their nominal size there.
+	wideChart    = chartSize{width: 960, height: 260, xLabels: 7}
+	compactChart = chartSize{width: 420, height: 260, xLabels: 4}
+)
+
+const (
+	// elevationSamples is the resampling resolution for elevation profiles.
+	// (elevationSamples-1) is divisible by every (xLabels-1) above, so tick
+	// labels land on evenly spaced samples and the last one never crowds its
+	// neighbour.
+	elevationSamples = 193
+
+	// axisFontPt is the tick-label size in points: 10pt renders as 13.3px in
+	// the chart's own coordinate space.
+	axisFontPt = 10
+
+	// areaFillOpacity is the alpha (0-255) of the fill under an elevation profile.
+	areaFillOpacity = 70
+
+	// maxSpeedLabels caps the x-axis tick labels of the per-kilometer chart so a
+	// long activity does not print a hundred colliding numbers.
+	maxSpeedLabels = 20
+
+	// maxBarPx and maxBarShare bound a speed bar's width: a short activity's
+	// one or two splits stay bars rather than slabs across the whole field.
+	maxBarPx    = 40.0
+	maxBarShare = 0.7
+
+	// valueAxisPx approximates the width the y-axis labels take from the plot.
+	valueAxisPx = 50
+)
+
+// Chart colours.
+//
+// The charting library writes colours into inline style attributes, where a
+// stylesheet cannot reach them. So every chart is drawn with these sentinel
+// colours, which nothing else ever produces, and themeSVG rewrites each one into
+// a CSS custom property. The page's stylesheet then themes the charts (light and
+// dark alike) without the server knowing which theme is in use.
+var (
+	sentinelText   = charts.Color{R: 1, G: 2, B: 3, A: 255}
+	sentinelAxis   = charts.Color{R: 1, G: 2, B: 4, A: 255}
+	sentinelGrid   = charts.Color{R: 1, G: 2, B: 5, A: 255}
+	sentinelSeries = charts.Color{R: 1, G: 2, B: 6, A: 255}
+)
+
+// chartTheme returns the sentinel palette. It is built on demand rather than
+// held in a package variable so the package carries no mutable state.
+func chartTheme() charts.ColorPalette {
+	return charts.MakeTheme(charts.ThemeOption{
+		BackgroundColor:    charts.ColorTransparent,
+		TextColor:          sentinelText,
+		AxisStrokeColor:    sentinelAxis,
+		AxisSplitLineColor: sentinelGrid,
+		SeriesColors:       []charts.Color{sentinelSeries},
+	})
+}
+
+var (
+	// sentinelColour matches every rgb()/rgba() form the library emits for a
+	// sentinel; the third channel identifies which one it is.
+	sentinelColour = regexp.MustCompile(`rgba?\(1,2,([3-6])(?:,[0-9.]+)?\)`)
+	// fontFamily matches the library's font declaration, whatever face it names.
+	fontFamily = regexp.MustCompile(`font-family:[^;"]+`)
+)
+
+// themeSVG rewrites the sentinel colours and the font into CSS custom
+// properties. An rgba() form is the translucent fill under a line, so it maps
+// to its own token rather than to the series colour.
+func themeSVG(b []byte) []byte {
+	b = sentinelColour.ReplaceAllFunc(b, func(m []byte) []byte {
+		switch string(sentinelColour.FindSubmatch(m)[1]) {
+		case "3":
+			return []byte("var(--chart-text)")
+		case "4":
+			return []byte("var(--chart-axis)")
+		case "5":
+			return []byte("var(--chart-grid)")
+		}
+		// The series colour: the line or bar itself, or (translucent) the area
+		// beneath the line.
+		if bytes.HasPrefix(m, []byte("rgba")) {
+			return []byte("var(--chart-area)")
+		}
+		return []byte("var(--chart-series)")
+	})
+	return fontFamily.ReplaceAll(b, []byte("font-family:var(--chart-font)"))
+}
+
+// chartSVG is one chart rendered at both sizes, ready to inline. The zero value
+// means "no chart": the template skips it.
+type chartSVG struct {
+	Wide    template.HTML
+	Compact template.HTML
+}
+
+// renderBoth draws a chart at both sizes and prepares each for inlining.
+func renderBoth(draw func(chartSize) ([]byte, error)) (chartSVG, error) {
+	wide, err := draw(wideChart)
+	if err != nil {
+		return chartSVG{}, err
+	}
+	compact, err := draw(compactChart)
+	if err != nil {
+		return chartSVG{}, err
+	}
+	// The SVG is generated by our charting library, not user input, and the
+	// rewrite only substitutes fixed strings, so marking it as trusted HTML for
+	// inlining is safe.
+	return chartSVG{
+		Wide:    template.HTML(svgFragment(themeSVG(wide))),    //nolint:gosec // library-generated SVG
+		Compact: template.HTML(svgFragment(themeSVG(compact))), //nolint:gosec // library-generated SVG
+	}, nil
+}
+
+// elevationVsDistanceChart renders the elevation-over-distance profile, with the
+// x-axis labelled in kilometres. It returns the zero chartSVG when the track has
+// no usable elevation series (the chart is simply skipped).
+func elevationVsDistanceChart(track gpx.Track) (chartSVG, error) {
+	prof, ok := stats.ElevationOverDistance(track, elevationSamples)
+	if !ok {
+		return chartSVG{}, nil
+	}
+	return renderBoth(func(sz chartSize) ([]byte, error) {
+		prec := kmLabelPrecision(prof.XMax, sz.xLabels)
+		labels := axisLabels(prof.XMax, len(prof.Elevations), func(km float64) string {
+			if km == 0 {
+				return "0" // the origin needs no decimals
+			}
+			return strconv.FormatFloat(km, 'f', prec, 64)
+		})
+		return renderElevation(prof.Elevations, labels, sz)
+	})
+}
+
+// elevationVsTimeChart renders the elevation-over-time profile, with the x-axis
+// labelled in elapsed time. It returns the zero chartSVG when the track lacks
 // elevation or timestamps (the chart is simply skipped).
-func elevationVsTimeSVG(track gpx.Track) ([]byte, error) {
+func elevationVsTimeChart(track gpx.Track) (chartSVG, error) {
 	prof, ok := stats.ElevationOverTime(track, elevationSamples)
 	if !ok {
-		return nil, nil
+		return chartSVG{}, nil
 	}
 	labels := axisLabels(prof.XMax, len(prof.Elevations), func(sec float64) string {
-		return formatDuration(time.Duration(sec) * time.Second)
+		return formatAxisDuration(time.Duration(sec) * time.Second)
 	})
-	return renderElevation(prof.Elevations, "Elevation vs. time (m)", labels)
+	return renderBoth(func(sz chartSize) ([]byte, error) {
+		return renderElevation(prof.Elevations, labels, sz)
+	})
 }
 
 // kmLabelPrecision picks a decimal precision for distance-axis labels so that
 // consecutive ticks stay distinct whether the track is a few hundred metres or
 // tens of kilometres long.
-func kmLabelPrecision(xmax float64) int {
-	step := xmax / float64(elevationLabelCount-1)
+func kmLabelPrecision(xmax float64, ticks int) int {
+	step := xmax / float64(ticks-1)
 	switch {
 	case step < 0.1:
 		return 2
@@ -64,6 +190,21 @@ func kmLabelPrecision(xmax float64) int {
 		return 1
 	default:
 		return 0
+	}
+}
+
+// formatAxisDuration renders an elapsed time compactly for a tick label: the
+// seconds a figure needs would only crowd an axis.
+func formatAxisDuration(d time.Duration) string {
+	total := int(d.Round(time.Minute) / time.Minute)
+	h, m := total/60, total%60
+	switch {
+	case h > 0:
+		return fmt.Sprintf("%dh%02d", h, m)
+	case m > 0:
+		return fmt.Sprintf("%dm", m)
+	default:
+		return "0"
 	}
 }
 
@@ -77,27 +218,52 @@ func axisLabels(xmax float64, n int, format func(float64) string) []string {
 	return labels
 }
 
-// renderElevation draws a resampled elevation series as an SVG line chart with the
-// given title and x-axis tick labels.
-func renderElevation(ys []float64, title string, labels []string) ([]byte, error) {
+// metres formats an elevation tick as a whole number of metres.
+func metres(v float64) string {
+	return strconv.FormatFloat(v, 'f', 0, 64)
+}
+
+// renderElevation draws a resampled elevation series as a filled profile.
+func renderElevation(ys []float64, labels []string, sz chartSize) ([]byte, error) {
 	p, err := charts.LineRender(
 		[][]float64{ys},
 		charts.SVGOutputOptionFunc(),
-		charts.DimensionsOptionFunc(chartWidth, chartHeight),
-		charts.TitleTextOptionFunc(title),
-		charts.XAxisOptionFunc(charts.XAxisOption{Labels: labels, LabelCount: elevationLabelCount}),
+		charts.DimensionsOptionFunc(sz.width, sz.height),
+		charts.ThemeOptionFunc(chartTheme()),
+		charts.PaddingOptionFunc(charts.Box{Top: 12, Right: 16, Bottom: 4, Left: 4}),
+		func(o *charts.ChartOption) {
+			o.FillArea = charts.Ptr(true)
+			o.FillOpacity = areaFillOpacity
+			o.Symbol = charts.Symbol{Shape: charts.SymbolNone}
+			o.LineStrokeWidth = 2
+			o.XAxis = charts.XAxisOption{
+				Labels:         labels,
+				LabelCount:     sz.xLabels,
+				LabelFontStyle: charts.NewFontStyleWithSize(axisFontPt),
+				BoundaryGap:    charts.Ptr(false),
+			}
+			o.YAxis = []charts.YAxisOption{{
+				LabelFontStyle: charts.NewFontStyleWithSize(axisFontPt),
+				ValueFormatter: metres,
+			}}
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("rendering elevation chart: %w", err)
 	}
-	return p.Bytes()
+	b, err := p.Bytes()
+	if err != nil {
+		return nil, fmt.Errorf("encoding elevation chart: %w", err)
+	}
+	return b, nil
 }
 
-// speedSVG renders per-kilometer speed as SVG bytes, or (nil, nil) when there
-// are no splits to plot.
-func speedSVG(res stats.Result) ([]byte, error) {
+// speedChart renders per-kilometer speed as bars (each split is a discrete
+// kilometre, not a point on a continuum), or the zero chartSVG when there are
+// no splits to plot.
+func speedChart(res stats.Result) (chartSVG, error) {
 	if !res.HasTimes || len(res.Splits) == 0 {
-		return nil, nil
+		return chartSVG{}, nil
 	}
 	speeds := make([]float64, 0, len(res.Splits))
 	labels := make([]string, 0, len(res.Splits))
@@ -105,27 +271,61 @@ func speedSVG(res stats.Result) ([]byte, error) {
 		speeds = append(speeds, s.SpeedKmh)
 		labels = append(labels, strconv.Itoa(s.Index))
 	}
-	p, err := charts.LineRender(
-		[][]float64{speeds},
-		charts.SVGOutputOptionFunc(),
-		charts.DimensionsOptionFunc(chartWidth, chartHeight),
-		charts.TitleTextOptionFunc("Speed per kilometer (km/h)"),
-		charts.XAxisLabelsOptionFunc(labels),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("rendering speed chart: %w", err)
-	}
-	return p.Bytes()
+	return renderBoth(func(sz chartSize) ([]byte, error) {
+		count := min(len(labels), maxSpeedLabels)
+		if sz.width < wideChart.width {
+			count = min(len(labels), maxSpeedLabels/2)
+		}
+		p, err := charts.BarRender(
+			[][]float64{speeds},
+			charts.SVGOutputOptionFunc(),
+			charts.DimensionsOptionFunc(sz.width, sz.height),
+			charts.ThemeOptionFunc(chartTheme()),
+			charts.PaddingOptionFunc(charts.Box{Top: 12, Right: 16, Bottom: 4, Left: 4}),
+			func(o *charts.ChartOption) {
+				o.BarSize = barShare(len(speeds), sz.width)
+				o.XAxis = charts.XAxisOption{
+					Labels:         labels,
+					LabelCount:     count,
+					LabelFontStyle: charts.NewFontStyleWithSize(axisFontPt),
+				}
+				o.YAxis = []charts.YAxisOption{{
+					// Bars encode magnitude by length, so the axis starts at
+					// zero; a single split would otherwise fill the field.
+					Min:            charts.Ptr(0.0),
+					LabelFontStyle: charts.NewFontStyleWithSize(axisFontPt),
+					ValueFormatter: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) },
+				}}
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("rendering speed chart: %w", err)
+		}
+		b, err := p.Bytes()
+		if err != nil {
+			return nil, fmt.Errorf("encoding speed chart: %w", err)
+		}
+		return b, nil
+	})
+}
+
+// barShare is a bar's width as a share of its slot, capped so no bar is
+// wider than maxBarPx.
+func barShare(bars, width int) float64 {
+	slot := float64(width-valueAxisPx) / float64(bars)
+	return min(maxBarShare, maxBarPx/slot)
 }
 
 // svgFragment trims any XML prolog/doctype so the SVG can be inlined directly
-// inside an HTML page. The input is chart-library output, never user content.
+// inside an HTML page, and marks it decorative for assistive technology: each
+// chart sits in a <figure> whose caption names it. The input is chart-library
+// output, never user content.
 func svgFragment(b []byte) []byte {
 	if b == nil {
 		return nil
 	}
 	if i := bytes.Index(b, []byte("<svg")); i >= 0 {
-		return b[i:]
+		b = b[i:]
 	}
-	return b
+	return bytes.Replace(b, []byte("<svg "), []byte(`<svg class="chart-svg" aria-hidden="true" focusable="false" `), 1)
 }
