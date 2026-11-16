@@ -1,0 +1,35 @@
+Source Sans 3 (variable, Latin subset)
+======================================
+
+Version:   @fontsource-variable/source-sans-3 5.3.1
+Designer:  Paul D. Hunt, Adobe
+License:   SIL Open Font License 1.1 (see LICENSE in this directory)
+Homepage:  https://github.com/adobe-fonts/source-sans
+
+Vendored on: 2026-11-16
+
+Retrieved from
+--------------
+  source-sans-3-latin-wght-normal.woff2  https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.1/files/source-sans-3-latin-wght-normal.woff2
+  source-sans-3-latin-wght-italic.woff2  https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.1/files/source-sans-3-latin-wght-italic.woff2
+  LICENSE                                https://raw.githubusercontent.com/adobe-fonts/source-sans/release/LICENSE.md
+
+SHA-256
+-------
+  19143dca075972bc84e3fd9eab7416dd40cc565dccb2435a044bdfabe060c7d5  source-sans-3-latin-wght-normal.woff2
+  5fbc14d56cea35e60596c72ca969b349443c6a536f74e11748eed8b3a396e61d  source-sans-3-latin-wght-italic.woff2
+  56af9b9c6715597e458284a474dc118a50a4150e9d547c70f7b4a33c3e6a9328  LICENSE
+
+Verify with:
+  shasum -a 256 *.woff2 LICENSE
+
+Why vendored
+------------
+The web UI is a single self-contained binary with no run-time dependency on a
+content network (spec 002-map-view, FR-018), so a hosted font stylesheet is not
+an option. These files are embedded by the //go:embed assets/static/* directive
+in internal/web/server.go and loaded by @font-face in app.css.
+
+The Latin subset covers U+0000-00FF plus common punctuation, which includes the
+accented letters GPX files routinely carry in names (é, ï, ...). Characters
+outside it fall back to the system sans.

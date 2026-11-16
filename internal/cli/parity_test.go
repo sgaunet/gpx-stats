@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -76,8 +77,11 @@ func assertParity(t *testing.T, fixture string) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("web status %d", rec.Code)
 	}
+	// Compared against what the page displays, not its markup: a figure may
+	// set its unit in its own element ("0.16 <span>km</span>").
+	body := visibleText(rec.Body.String())
 	wantDistStr := fmt.Sprintf("%.2f km", want.TotalDistanceKm)
-	if !strings.Contains(rec.Body.String(), wantDistStr) {
+	if !strings.Contains(body, wantDistStr) {
 		t.Errorf("web page missing distance %q", wantDistStr)
 	}
 
@@ -99,7 +103,6 @@ func assertParity(t *testing.T, fixture string) {
 			t.Errorf("cli %s %.3f != engine %.3f", f.key, v, f.want)
 		}
 	}
-	body := rec.Body.String()
 	for _, want := range []string{
 		fmt.Sprintf("%.0f m", want.DescendingElevationM),
 		fmt.Sprintf("%.2f", want.EffortKmClimb),
@@ -122,6 +125,22 @@ func assertParity(t *testing.T, fixture string) {
 	if want.Activity.Name != "" && !strings.Contains(body, want.Activity.Name) {
 		t.Errorf("web page missing activity name %q", want.Activity.Name)
 	}
+}
+
+var (
+	// nonText matches the elements whose content is never displayed as page
+	// text (map payloads, styles) or is chart lettering, which must not be
+	// able to satisfy a figure check by coincidence.
+	nonText = regexp.MustCompile(`(?s)<(script|style|svg)\b.*?</(script|style|svg)>`)
+	anyTag  = regexp.MustCompile(`<[^>]*>`)
+)
+
+// visibleText reduces an HTML page to its displayed text with whitespace
+// collapsed, so "18.85 <span class="u">km</span>" reads "18.85 km".
+func visibleText(page string) string {
+	page = nonText.ReplaceAllString(page, " ")
+	page = anyTag.ReplaceAllString(page, "")
+	return strings.Join(strings.Fields(page), " ")
 }
 
 // round3 mirrors the CLI's JSON rounding for comparison.

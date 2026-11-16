@@ -1,85 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>gpx-stats</title>
-  <link rel="stylesheet" href="/static/bulma.min.css">
+  {{template "head" "gpx-stats"}}
   <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/static/map.css">
 </head>
 <body>
-  <section class="section">
-    <div class="container">
-      <h1 class="title">GPX Statistics</h1>
-      <h2 class="subtitle">Upload a GPX file — or drop it on the map — to see your activity statistics and charts.</h2>
+<main class="sheet sheet--landing">
+  <section class="legend" aria-labelledby="page-title">
+    <nav class="legend-nav" aria-label="gpx-stats">{{template "brand"}}</nav>
 
-      <div class="notification is-info is-light">
-        <strong>Privacy:</strong> your file is processed in memory and is
-        <strong>not stored</strong>. Nothing is written to disk, and your file
-        and its statistics never leave this server.
-        <br>
-        Map backgrounds are the one exception: they are loaded by
-        <strong>your browser</strong> directly from the map provider, which can
-        therefore see the area of the map you are looking at. Your GPX file is
-        never sent to them.
+    <header class="legend-head">
+      <h1 id="page-title">GPX Statistics</h1>
+      <p class="lede">Upload a GPX file — or drop it on the map — to see your activity statistics and charts.</p>
+    </header>
+
+    {{if .Error}}
+    <p class="notice notice--error" role="alert">{{.Error}}</p>
+    {{end}}
+
+    <form class="upload" action="/analyze" method="post" enctype="multipart/form-data">
+      <div class="field field--file">
+        <label class="label" for="file">GPX file</label>
+        <input class="file-input" type="file" id="file" name="file" accept=".gpx,application/gpx+xml,text/xml" required aria-describedby="file-help">
+        <p class="help" id="file-help">Maximum size: {{.MaxUploadMB}} MB.</p>
       </div>
 
-      {{if .Error}}
-      <div class="notification is-danger">{{.Error}}</div>
-      {{end}}
-
-      {{template "mapview" .Map}}
-
-      <div class="box">
-        <form action="/analyze" method="post" enctype="multipart/form-data">
+      <details class="settings">
+        <summary>
+          <span class="settings-title">Analysis settings</span>
+          <span class="settings-current">Pauses below {{.PauseSpeed}} km/h for {{.PauseDuration}} &middot; elevation noise {{.ElevationNoise}} m</span>
+        </summary>
+        <div class="settings-fields">
           <div class="field">
-            <label class="label" for="file">GPX file</label>
-            <div class="control">
-              <input class="input" type="file" id="file" name="file" accept=".gpx,application/gpx+xml,text/xml" required>
-            </div>
-            <p class="help">Maximum size: {{.MaxUploadMB}} MB.</p>
+            <label class="label" for="pause_speed">Pause speed threshold (km/h)</label>
+            <input class="input" type="number" step="0.1" min="0" id="pause_speed" name="pause_speed" value="{{.PauseSpeed}}" inputmode="decimal">
           </div>
-
-          <div class="columns">
-            <div class="column">
-              <div class="field">
-                <label class="label" for="pause_speed">Pause speed threshold (km/h)</label>
-                <div class="control">
-                  <input class="input" type="number" step="0.1" min="0" id="pause_speed" name="pause_speed" value="{{.PauseSpeed}}">
-                </div>
-              </div>
-            </div>
-            <div class="column">
-              <div class="field">
-                <label class="label" for="pause_duration">Minimum pause duration</label>
-                <div class="control">
-                  <input class="input" type="text" id="pause_duration" name="pause_duration" value="{{.PauseDuration}}" placeholder="2m0s">
-                </div>
-                <p class="help">Go duration format, e.g. <code>10s</code>, <code>1m30s</code>.</p>
-              </div>
-            </div>
-            <div class="column">
-              <div class="field">
-                <label class="label" for="elevation_noise">Elevation noise threshold (m)</label>
-                <div class="control">
-                  <input class="input" type="number" step="0.1" min="0" id="elevation_noise" name="elevation_noise" value="{{.ElevationNoise}}">
-                </div>
-                <p class="help">Filters GPS elevation jitter out of ascent and descent.</p>
-              </div>
-            </div>
-          </div>
-
           <div class="field">
-            <div class="control">
-              <button class="button is-primary" type="submit">Calculate statistics</button>
-            </div>
+            <label class="label" for="pause_duration">Minimum pause duration</label>
+            <input class="input" type="text" id="pause_duration" name="pause_duration" value="{{.PauseDuration}}" placeholder="2m0s" aria-describedby="pause_duration-help" spellcheck="false" autocomplete="off">
+            <p class="help" id="pause_duration-help">Go duration format, e.g. <code>10s</code>, <code>1m30s</code>.</p>
           </div>
-        </form>
-      </div>
-    </div>
+          <div class="field">
+            <label class="label" for="elevation_noise">Elevation noise threshold (m)</label>
+            <input class="input" type="number" step="0.1" min="0" id="elevation_noise" name="elevation_noise" value="{{.ElevationNoise}}" inputmode="decimal" aria-describedby="elevation_noise-help">
+            <p class="help" id="elevation_noise-help">Filters GPS elevation jitter out of ascent and descent.</p>
+          </div>
+        </div>
+      </details>
+
+      <button class="button" type="submit" data-label="Calculate statistics">Calculate statistics</button>
+    </form>
+
+    <p class="privacy">
+      Your file is processed in memory and is <strong>not stored</strong>.
+      Nothing is written to disk, and your file and its statistics never leave
+      this server. Map backgrounds are the one exception: they are loaded by
+      <strong>your browser</strong> directly from the map provider, which can
+      therefore see the area of the map you are looking at. Your GPX file is
+      never sent to them.
+    </p>
   </section>
-  <script src="/static/vendor/leaflet/leaflet.js"></script>
-  <script src="/static/map.js"></script>
+
+  <div class="field-area">
+    {{template "mapview" .Map}}
+  </div>
+</main>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/map.js"></script>
 </body>
 </html>

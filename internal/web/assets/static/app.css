@@ -1,0 +1,968 @@
+/* gpx-stats — page stylesheet.
+ *
+ * The page is laid out like a topographic map sheet: a legend column of
+ * marginalia (the figures, a scale bar for distance, spot heights for ascent and
+ * descent) beside a large map field, with the elevation profile along the
+ * sheet's bottom margin. Further plates continue the same two-column grid.
+ *
+ * Every colour, size and space is a token on :root; the dark scheme only
+ * redefines tokens. map.css covers what Leaflet draws, against the same tokens.
+ */
+
+/* ------------------------------------------------------------------ fonts */
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("fonts/source-sans-3-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("fonts/source-sans-3-latin-wght-italic.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ----------------------------------------------------------------- tokens */
+
+:root {
+  color-scheme: light dark;
+
+  /* Map paper, lettering, and the sheet's printed inks. */
+  --paper: #fafaf7;
+  --paper-2: #f1efe7;
+  --ink: #1c1c1c;
+  --ink-2: #57524b;
+  --rule: #dad5ca;
+  --neatline: #1c1c1c;
+  --contour: #a3683c;
+  --contour-ink: #8a5530;
+  --water: #2f77ae;
+  --water-ink: #245f8c;
+  --forest: #cfe2b0;
+  --route: #c8102e;
+  --start: #257942;
+  --danger: #a5221b;
+
+  /* Inks drawn on the map itself. Tiles look the same in either scheme, so
+     these never change with it (the dark block does not redefine them). */
+  --map-route: #c8102e;
+  --map-start: #257942;
+  --map-halo: #ffffff;
+  --danger-field: #fbeae7;
+
+  /* The brand mark: a peak hillshaded from the north-west, as on a relief
+     sheet. The lit face is always the lighter tone, so the night sheet swaps
+     the pair. favicon.svg hard-codes the same four resolved colours. */
+  --brand-lit: color-mix(in srgb, var(--contour) 60%, var(--paper));
+  --brand-shade: var(--contour);
+
+  /* Charts are themed through these; see themeSVG in charts.go. */
+  --chart-text: var(--ink-2);
+  --chart-axis: var(--ink-2);
+  --chart-grid: var(--rule);
+  --chart-series: var(--contour);
+  --chart-area: color-mix(in srgb, var(--contour) 24%, transparent);
+  --chart-font: var(--font);
+
+  --font: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* A tight fixed scale: this is a working page, not a poster. */
+  --fs-xs: 0.8125rem;   /* 13px: caps headings, notes */
+  --fs-sm: 0.9375rem;   /* 15px: secondary text, tables */
+  --fs-md: 1.0625rem;   /* 17px: body */
+  --fs-lg: 1.375rem;    /* 22px: minor figures */
+  --fs-xl: 1.75rem;     /* 28px: figures, page title */
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  --legend-w: clamp(340px, 28vw, 420px);
+  --pad-x: 28px;
+  --double: 3px double var(--neatline);
+
+  --icon-layers: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c1c1c' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M12 3 3 8l9 5 9-5-9-5Z'/%3E%3Cpath d='m3 12.5 9 5 9-5'/%3E%3Cpath d='m3 17 9 5 9-5'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* The night sheet: same inks, lifted for a dark ground. */
+    --paper: #16181a;
+    --paper-2: #1e2124;
+    --ink: #eceae4;
+    --ink-2: #ada79c;
+    --rule: #383b3f;
+    --neatline: #ada79c;
+    --contour: #d49a68;
+    --contour-ink: #e2b285;
+    --water: #7db5e0;
+    --water-ink: #a6cdec;
+    --forest: #2f3c28;
+    --route: #ff5c6c;
+    --start: #4cc07a;
+    --danger: #ff9a90;
+    --danger-field: #3a1f1d;
+    --brand-lit: var(--contour);
+    --brand-shade: color-mix(in srgb, var(--contour) 60%, var(--paper));
+    --chart-area: color-mix(in srgb, var(--contour) 30%, transparent);
+    --icon-layers: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23eceae4' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M12 3 3 8l9 5 9-5-9-5Z'/%3E%3Cpath d='m3 12.5 9 5 9-5'/%3E%3Cpath d='m3 17 9 5 9-5'/%3E%3C/svg%3E");
+  }
+}
+
+/* ------------------------------------------------------------------- base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-color: var(--rule) var(--paper);
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--fs-md) / 1.45 var(--font);
+  caret-color: var(--water);
+}
+
+h1,
+h2,
+p,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+::selection {
+  background: var(--forest);
+  color: var(--ink);
+}
+
+a {
+  color: var(--water-ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 2px;
+}
+
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+/* ------------------------------------------------------------ the sheet */
+
+.sheet {
+  display: grid;
+  grid-template-columns: var(--legend-w) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: var(--s-5) var(--pad-x) var(--s-6);
+  border-right: var(--double);
+  min-width: 0;
+}
+
+.field-area {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* On a wide screen the whole sheet face (map above, profile strip at its
+   foot) holds one viewport while the legend scrolls past it, so the route and
+   the climb are always in view together. */
+@media (min-width: 1100px) {
+  .field-area {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    height: 100dvh;
+  }
+}
+
+.legend-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-height: 40px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink);
+  font-weight: 650;
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+
+/* The lit path is the whole silhouette and the shaded face sits on top, so the
+   shared ridge edge never shows an anti-aliasing seam. */
+.brand-lit {
+  fill: var(--brand-lit);
+}
+
+.brand-shade {
+  fill: var(--brand-shade);
+}
+
+.legend-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+/* Sheet titles are lettered in spaced capitals, the way a map names itself. */
+h1 {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.lede {
+  color: var(--ink-2);
+  max-width: 40ch;
+}
+
+.identity {
+  font-style: italic;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.identity time {
+  white-space: nowrap;
+}
+
+.identity > span + span::before {
+  content: "· ";
+  font-style: normal;
+}
+
+.identity .identity-name {
+  font-style: normal;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.identity .tag {
+  font-style: normal;
+}
+
+.identity > .tag + span::before,
+.identity > .identity-name + .tag::before {
+  content: none;
+}
+
+.tag {
+  display: inline-block;
+  margin: 0 var(--s-1);
+  padding: 1px 7px;
+  border: 1px solid var(--ink-2);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------ the legend */
+
+.legend-group {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: calc(var(--s-5) * -1 + var(--s-2));
+}
+
+.legend-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--s-5);
+}
+
+.entry {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--s-3);
+  row-gap: var(--s-1);
+  padding: var(--s-3) 0;
+  border-top: 1px solid var(--rule);
+}
+
+.entry > dt {
+  position: relative;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.3;
+}
+
+/* A spot-height mark sits in the label's own gutter, as in a map legend. */
+.entry > dt:has(.spot) {
+  padding-left: 20px;
+}
+
+.entry .spot {
+  position: absolute;
+  left: 0;
+  top: 0.2em;
+  width: 13px;
+  height: 13px;
+  fill: var(--contour);
+}
+
+.fig {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fig .u {
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+
+/* Two short figures share a row: label above value. */
+.entry--half {
+  grid-column: auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.entry--half > .fig {
+  text-align: left;
+}
+
+.legend-list--minor .fig {
+  font-size: var(--fs-lg);
+}
+
+.note {
+  grid-column: 1 / -1;
+  font-size: var(--fs-xs);
+  font-style: italic;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+
+/* Distance drawn as the sheet's scale bar. */
+.scale {
+  grid-column: 1 / -1;
+  padding-top: var(--s-2);
+}
+
+.scale-bar {
+  position: relative;
+  display: flex;
+  height: 8px;
+  border: 1px solid var(--ink);
+}
+
+/* A short tick closes the bar at the activity's total, stated just above. */
+.scale-bar::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 100%;
+  width: 1px;
+  height: 5px;
+  background: var(--ink);
+}
+
+.scale-seg {
+  display: block;
+  height: 100%;
+}
+
+.scale-seg.is-filled {
+  background: var(--ink);
+}
+
+.scale-ticks {
+  position: relative;
+  display: block;
+  height: 1.4em;
+  margin-top: 3px;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.scale-tick {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+
+.scale-tick {
+  transform: translateX(-50%);
+}
+
+.scale-tick:first-child {
+  transform: none;
+}
+
+.scale-tick:last-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* The effort conventions: total, its two rates, then its legend once. */
+.entry--effort {
+  padding-bottom: var(--s-3);
+}
+
+.entry--effort > dt {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.rates {
+  grid-column: 1 / -1;
+}
+
+.rates dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.rates dt {
+  color: var(--ink-2);
+}
+
+.rates dd {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.privacy {
+  margin-top: auto;
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 60ch;
+}
+
+.privacy strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------------- the field */
+
+.map-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.empty-map {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  padding: var(--s-6);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-style: italic;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- charts */
+
+.chart {
+  container-type: inline-size;
+}
+
+.chart figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin-bottom: var(--s-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.units {
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-style: italic;
+}
+
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart-wide {
+  display: none;
+}
+
+@container (min-width: 600px) {
+  .chart-wide {
+    display: block;
+  }
+
+  .chart-compact {
+    display: none;
+  }
+}
+
+/* Speed is not elevation, so it leaves contour brown to the profiles; blue
+   stays reserved for links, focus and selection. */
+.chart--speed {
+  --chart-series: var(--ink-2);
+}
+
+/* The profile runs along the sheet's bottom margin, under a neatline. */
+.chart--profile {
+  border-top: var(--double);
+  padding: var(--s-4) var(--s-5) var(--s-4);
+}
+
+/* ---------------------------------------------------------------- plates */
+
+.plate {
+  display: grid;
+  grid-template-columns: var(--legend-w) minmax(0, 1fr);
+  border-top: var(--double);
+}
+
+.plate-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-5) var(--pad-x) var(--s-6);
+  border-right: var(--double);
+}
+
+.plate-head h2 {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.plate-head .note {
+  font-size: var(--fs-sm);
+  max-width: 34ch;
+}
+
+.plate-body {
+  padding: var(--s-5) var(--s-5) var(--s-6);
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- splits */
+
+.splits {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 34rem;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.splits th,
+.splits td {
+  padding: 6px var(--s-3);
+  text-align: right;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.splits thead th {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--neatline);
+  vertical-align: bottom;
+}
+
+.splits tbody th {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.splits th:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.splits tbody tr:hover {
+  background: var(--paper-2);
+}
+
+/* ------------------------------------------------------------------ forms */
+
+.upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+}
+
+.help {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.input {
+  width: 100%;
+  min-height: 42px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--ink-2);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.input:hover {
+  border-color: var(--ink);
+}
+
+.input:focus-visible {
+  outline-offset: 0;
+  border-color: var(--water);
+}
+
+.input:user-invalid {
+  border-color: var(--danger);
+}
+
+/* The file control is the first drop target: a large, dashed field. */
+.file-input {
+  width: 100%;
+  padding: var(--s-5) var(--s-4);
+  border: 1.5px dashed var(--contour);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.file-input:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.file-input:focus-visible {
+  outline-offset: 2px;
+}
+
+.file-input::file-selector-button {
+  margin-right: var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.file-input:hover::file-selector-button {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.settings {
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.settings summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--s-2);
+  padding: var(--s-3) 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings summary::before {
+  content: "";
+  grid-row: 1 / span 2;
+  width: 8px;
+  height: 8px;
+  margin: 0.55em 4px 0 2px;
+  border-right: 1.5px solid var(--contour);
+  border-bottom: 1.5px solid var(--contour);
+  transform: rotate(-45deg);
+  transition: transform 160ms ease-out;
+}
+
+.settings[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.settings-title {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+}
+
+.settings-current {
+  grid-column: 2;
+  font-size: var(--fs-xs);
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+.settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-2) 0 var(--s-4);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--s-2) var(--s-5);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font: inherit;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 160ms ease-out, color 160ms ease-out;
+}
+
+.button:hover {
+  background: var(--water-ink);
+  border-color: var(--water-ink);
+  color: var(--paper);
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.button--quiet {
+  min-height: 36px;
+  padding: 6px var(--s-3);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+
+.button--quiet:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.notice {
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  font-size: var(--fs-sm);
+}
+
+.notice--error {
+  border-color: var(--danger);
+  background: var(--danger-field);
+  color: var(--ink);
+}
+
+/* ------------------------------------------------- single-panel page (error) */
+
+.sheet--single {
+  grid-template-columns: var(--legend-w) minmax(0, 1fr);
+}
+
+.sheet--single .legend {
+  justify-content: flex-start;
+}
+
+/* The field beside an error is the sheet's blank map face, the same ground
+   the results page shows when a file has no coordinates. */
+.sheet--single::after {
+  content: "";
+  background: var(--paper-2);
+}
+
+@media (max-width: 1099px) {
+  .sheet--single::after {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------- responsive */
+
+@media (max-width: 1099px) {
+  :root {
+    --pad-x: 20px;
+  }
+
+  .sheet,
+  .plate,
+  .sheet--single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .legend,
+  .plate-head {
+    border-right: 0;
+  }
+
+  .legend {
+    padding-bottom: var(--s-5);
+  }
+
+  .sheet--results .legend,
+  .sheet--landing .legend {
+    border-bottom: var(--double);
+  }
+
+  .plate-head {
+    padding-bottom: 0;
+  }
+
+  .plate-body {
+    padding: var(--s-4) var(--pad-x) var(--s-6);
+  }
+
+  .chart--profile {
+    padding: var(--s-4) var(--pad-x);
+  }
+
+  .privacy {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .legend-nav {
+    flex-wrap: wrap;
+  }
+
+  .legend-list {
+    column-gap: var(--s-4);
+  }
+
+  .fig {
+    font-size: var(--fs-lg);
+  }
+
+  .legend-list--minor .fig {
+    font-size: var(--fs-md);
+  }
+
+  .splits th,
+  .splits td {
+    padding-left: var(--s-2);
+    padding-right: var(--s-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

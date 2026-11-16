@@ -419,3 +419,18 @@ func mustParse(t *testing.T, data []byte) gpx.Track {
 	}
 	return tr
 }
+
+// TestDropHintOnlyOnLanding: the landing page advertises dropping a file on the
+// map, but ships the hint hidden so that only a browser that can really handle
+// the drop (map.js reveals it) ever shows it. The results map takes no drop.
+func TestDropHintOnlyOnLanding(t *testing.T) {
+	srv := testServer(t, nil)
+	index := serve(t, srv, getRequest(t, "/")).Body.String()
+	if !regexp.MustCompile(`<p id="gpx-drop-hint"[^>]*\shidden[\s>]`).MatchString(index) {
+		t.Errorf("landing page must ship the drop hint, hidden")
+	}
+	results := serve(t, srv, uploadRequest(t, fixtureBytes(t, "sample.gpx"), nil)).Body.String()
+	if strings.Contains(results, "gpx-drop-hint") {
+		t.Errorf("results page must not advertise dropping a file")
+	}
+}

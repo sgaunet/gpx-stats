@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A hillshaded peak lit from the north-west, as on a relief sheet. The lit
+       face is always the lighter tone, so the dark scheme swaps the two inks.
+       Colours mirror the brand tokens in app.css (contour, and contour
+       mixed 60% into paper). -->
+  <style>
+    .lit { fill: #c6a287 }
+    .shade { fill: #a3683c }
+    @media (prefers-color-scheme: dark) {
+      .lit { fill: #d49a68 }
+      .shade { fill: #886649 }
+    }
+  </style>
+  <path class="lit" d="M1 28.5 9 13 13.5 18.5 19 3.5 31 28.5Z"/>
+  <path class="shade" d="M19 3.5 20.6 12 19.6 18.5 22.5 28.5 31 28.5Z"/>
+</svg>
